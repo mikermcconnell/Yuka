@@ -30,8 +30,6 @@ export default function InteractionWarnings({ additives }: InteractionWarningsPr
     return null;
   }
 
-  const summary = getInteractionSummary(additives);
-
   return (
     <div className="space-y-3">
       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">

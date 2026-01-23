@@ -1,5 +1,5 @@
 import { AdditiveFunction, AdditiveFunctionInfo, Additive } from '@/types';
-import { getAdditive, ADDITIVES } from './additives';
+import { getAdditive } from './additives';
 
 /**
  * Additive Categories/Functions (Feature 7)

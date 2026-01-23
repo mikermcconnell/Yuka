@@ -4,7 +4,6 @@ import { AdditiveLoadScore } from '@/types';
 import {
   getProcessingLevelInfo,
   getNormalizedLoadScore,
-  getAdditiveLoadSummary,
 } from '@/lib/scoring/additiveLoad';
 
 interface AdditiveLoadIndicatorProps {
@@ -24,7 +23,6 @@ export default function AdditiveLoadIndicator({
 }: AdditiveLoadIndicatorProps) {
   const levelInfo = getProcessingLevelInfo(loadScore.processingLevel);
   const normalizedScore = getNormalizedLoadScore(loadScore);
-  const summary = getAdditiveLoadSummary(loadScore);
 
   // SVG circle parameters
   const size = compact ? 60 : 100;

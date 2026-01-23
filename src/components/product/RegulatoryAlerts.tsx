@@ -1,13 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { RegulatoryJurisdiction, RegulatoryStatus } from '@/types';
+import { RegulatoryStatus } from '@/types';
 import {
   getAdditiveRegulatory,
   isBannedAnywhere,
   requiresWarningAnywhere,
   compareRegulations,
-  JURISDICTION_NAMES,
   JURISDICTION_FLAGS,
   STATUS_INFO,
 } from '@/lib/scoring/regulatoryStatus';
@@ -218,7 +217,6 @@ function RegulatoryDetailView({ code }: { code: string }) {
                   <RegulatoryStatusBadge
                     status={item.status}
                     notes={item.notes}
-                    warningText={item.warningText}
                   />
                 </td>
               </tr>
@@ -262,11 +260,9 @@ function RegulatoryDetailView({ code }: { code: string }) {
 function RegulatoryStatusBadge({
   status,
   notes,
-  warningText,
 }: {
   status: RegulatoryStatus | 'unknown';
   notes?: string;
-  warningText?: string;
 }) {
   if (status === 'unknown') {
     return <span className="text-gray-400 text-xs">No data</span>;
