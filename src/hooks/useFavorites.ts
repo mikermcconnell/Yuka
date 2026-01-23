@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Product, FavoriteEntry } from '@/types';
 import { addToFavorites, removeFromFavorites, getFavorites, isFavorite } from '@/lib/firebase/firestore';
 import { getErrorMessage } from '@/lib/utils/formatters';
@@ -23,6 +23,16 @@ export function useFavorites(): UseFavoritesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track mounted state to prevent state updates after unmount
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const fetchFavorites = useCallback(async () => {
     if (!user) {
       setFavorites([]);
@@ -34,11 +44,17 @@ export function useFavorites(): UseFavoritesReturn {
 
     try {
       const entries = await getFavorites(user.uid);
-      setFavorites(entries);
+      if (mountedRef.current) {
+        setFavorites(entries);
+      }
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to fetch favorites'));
+      if (mountedRef.current) {
+        setError(getErrorMessage(err, 'Failed to fetch favorites'));
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 

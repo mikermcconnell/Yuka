@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { ProductList } from '@/types';
 import {
   createList,
@@ -33,6 +33,16 @@ export function useLists(): UseListsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track mounted state to prevent state updates after unmount
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const fetchLists = useCallback(async () => {
     if (!user) {
       setLists([]);
@@ -44,11 +54,17 @@ export function useLists(): UseListsReturn {
 
     try {
       const userLists = await getLists(user.uid);
-      setLists(userLists);
+      if (mountedRef.current) {
+        setLists(userLists);
+      }
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to fetch lists'));
+      if (mountedRef.current) {
+        setError(getErrorMessage(err, 'Failed to fetch lists'));
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 

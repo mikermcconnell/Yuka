@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Product, HistoryEntry } from '@/types';
 import { addToHistory, getHistory, deleteHistoryEntry, clearHistory } from '@/lib/firebase/firestore';
 import { getErrorMessage } from '@/lib/utils/formatters';
@@ -22,6 +22,16 @@ export function useHistory(): UseHistoryReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track mounted state to prevent state updates after unmount
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   const fetchHistory = useCallback(async () => {
     if (!user) {
       setHistory([]);
@@ -33,11 +43,17 @@ export function useHistory(): UseHistoryReturn {
 
     try {
       const entries = await getHistory(user.uid);
-      setHistory(entries);
+      if (mountedRef.current) {
+        setHistory(entries);
+      }
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to fetch history'));
+      if (mountedRef.current) {
+        setError(getErrorMessage(err, 'Failed to fetch history'));
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [user]);
 

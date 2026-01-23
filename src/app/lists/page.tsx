@@ -6,7 +6,7 @@ import { Header, LoadingSpinner } from '@/components/layout';
 import { Button, Card, Input, Modal } from '@/components/ui';
 import { useLists } from '@/hooks/useLists';
 import { useAuth } from '@/hooks/useAuth';
-import { formatRelativeTime } from '@/lib/utils/formatters';
+import { formatRelativeTime, getErrorMessage } from '@/lib/utils/formatters';
 
 export default function ListsPage() {
   const { user } = useAuth();
@@ -15,18 +15,20 @@ export default function ListsPage() {
   const [newListName, setNewListName] = useState('');
   const [newListDescription, setNewListDescription] = useState('');
   const [creating, setCreating] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleCreateList = async () => {
     if (!newListName.trim()) return;
 
     setCreating(true);
+    setActionError(null);
     try {
       await createNewList(newListName.trim(), newListDescription.trim() || undefined);
       setShowCreateModal(false);
       setNewListName('');
       setNewListDescription('');
-    } catch {
-      // Handle error
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Failed to create list. Please try again.'));
     } finally {
       setCreating(false);
     }
@@ -69,6 +71,19 @@ export default function ListsPage() {
       <Header title="My Lists" />
 
       <main className="px-4 py-6">
+        {/* Error display */}
+        {actionError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 text-sm">{actionError}</p>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-red-600 text-xs mt-1 hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Create button */}
         <Button
           onClick={() => setShowCreateModal(true)}

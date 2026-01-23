@@ -7,7 +7,7 @@ import { ProductListItem } from '@/components/product';
 import { Button, ConfirmModal } from '@/components/ui';
 import { useHistory } from '@/hooks/useHistory';
 import { useAuth } from '@/hooks/useAuth';
-import { formatRelativeTime } from '@/lib/utils/formatters';
+import { formatRelativeTime, getErrorMessage } from '@/lib/utils/formatters';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -15,14 +15,16 @@ export default function HistoryPage() {
   const { history, loading, removeEntry, clearAll } = useHistory();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleClearAll = async () => {
     setClearing(true);
+    setActionError(null);
     try {
       await clearAll();
       setShowClearConfirm(false);
-    } catch {
-      // Handle error
+    } catch (err) {
+      setActionError(getErrorMessage(err, 'Failed to clear history. Please try again.'));
     } finally {
       setClearing(false);
     }
@@ -65,6 +67,19 @@ export default function HistoryPage() {
       <Header title="Scan History" />
 
       <main className="px-4 py-6">
+        {/* Error display */}
+        {actionError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-700 text-sm">{actionError}</p>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-red-600 text-xs mt-1 hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {/* Header with clear button */}
         {history.length > 0 && (
           <div className="flex justify-between items-center mb-4">

@@ -51,8 +51,34 @@ export function onAuthChange(callback: (user: User | null) => void): () => void 
 
   return onAuthStateChanged(auth(), async (firebaseUser) => {
     if (firebaseUser) {
-      const user = await getUserFromFirestore(firebaseUser.uid);
-      callback(user);
+      try {
+        const user = await getUserFromFirestore(firebaseUser.uid);
+        // If user document doesn't exist in Firestore, create a basic user object
+        // from Firebase Auth data to prevent stuck loading state
+        if (user) {
+          callback(user);
+        } else {
+          // User is authenticated but no Firestore doc yet - create minimal user
+          callback({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            createdAt: new Date(),
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user from Firestore:', error);
+        // On error, still provide basic user info from Firebase Auth
+        // to prevent app from being stuck in loading state
+        callback({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+          createdAt: new Date(),
+        });
+      }
     } else {
       callback(null);
     }

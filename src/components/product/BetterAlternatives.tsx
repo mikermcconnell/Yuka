@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Product } from '@/types';
@@ -16,24 +16,42 @@ export default function BetterAlternatives({ product }: BetterAlternativesProps)
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Use ref to track mounted state and prevent state updates after unmount
+  const mountedRef = useRef(true);
+
   useEffect(() => {
+    mountedRef.current = true;
+
     const loadAlternatives = async () => {
       setLoading(true);
       setError(null);
 
       try {
         const results = await fetchBetterAlternatives(product, 5);
-        setAlternatives(results);
+        // Only update state if component is still mounted
+        if (mountedRef.current) {
+          setAlternatives(results);
+        }
       } catch (err) {
         console.error('Failed to load alternatives:', err);
-        setError('Failed to load alternatives');
+        if (mountedRef.current) {
+          setError('Failed to load alternatives');
+        }
       } finally {
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     loadAlternatives();
-  }, [product]);
+
+    return () => {
+      mountedRef.current = false;
+    };
+    // Using stable primitives instead of product object to prevent infinite re-renders
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.barcode, product.healthScore, product.categories]);
 
   // Don't show section if product already has a great score
   if (product.healthScore >= 75 && !loading) {

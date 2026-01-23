@@ -21,10 +21,35 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
   const lastScannedRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
 
-  // Get available cameras
+  // Refs to prevent race conditions
+  const isStartingRef = useRef(false);
+  const isStoppingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  // Stable refs for callbacks to avoid dependency issues
+  const onScanRef = useRef(onScan);
+  const onErrorRef = useRef(onError);
+
+  // Keep refs updated
+  useEffect(() => {
+    onScanRef.current = onScan;
+    onErrorRef.current = onError;
+  }, [onScan, onError]);
+
+  // Track mounted state for cleanup
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Get available cameras (runs once on mount)
   useEffect(() => {
     Html5Qrcode.getCameras()
       .then((devices) => {
+        if (!mountedRef.current) return;
+
         if (devices && devices.length > 0) {
           setCameras(devices);
           // Prefer back camera on mobile
@@ -35,22 +60,41 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
           setHasPermission(true);
         } else {
           setHasPermission(false);
-          onError?.('No cameras found');
+          onErrorRef.current?.('No cameras found');
         }
       })
       .catch((err) => {
+        if (!mountedRef.current) return;
+
         setHasPermission(false);
         const errorMessage = err.message || 'Camera permission denied';
-        if (onError) {
-          onError(errorMessage);
+        if (onErrorRef.current) {
+          onErrorRef.current(errorMessage);
         } else {
           console.error('BarcodeScanner camera error:', errorMessage);
         }
       });
-  }, [onError]);
+  }, []); // Empty deps - only run once on mount
 
   const startScanning = useCallback(async () => {
+    // Guard against concurrent starts or starts during stop
     if (!selectedCamera || !containerRef.current) return;
+    if (isStartingRef.current || isStoppingRef.current) return;
+
+    // Check if DOM element exists
+    const scannerElement = document.getElementById('barcode-scanner');
+    if (!scannerElement) {
+      console.warn('Scanner DOM element not found, retrying...');
+      // Retry after a short delay to allow DOM to render
+      setTimeout(() => {
+        if (mountedRef.current && !isStartingRef.current) {
+          startScanning();
+        }
+      }, 100);
+      return;
+    }
+
+    isStartingRef.current = true;
 
     try {
       // Clean up existing scanner
@@ -60,7 +104,18 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
         } catch {
           // Ignore stop errors
         }
-        scannerRef.current.clear();
+        try {
+          scannerRef.current.clear();
+        } catch {
+          // Ignore clear errors
+        }
+        scannerRef.current = null;
+      }
+
+      // Check if component is still mounted after cleanup
+      if (!mountedRef.current) {
+        isStartingRef.current = false;
+        return;
       }
 
       const scanner = new Html5Qrcode('barcode-scanner', {
@@ -102,12 +157,26 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
             navigator.vibrate(100);
           }
 
-          onScan(decodedText);
+          // Use ref to avoid stale closure
+          onScanRef.current(decodedText);
         },
         () => {
           // QR code scan error (no code found) - ignore
         }
       );
+
+      // Check if component is still mounted after start
+      if (!mountedRef.current) {
+        // Component unmounted during start, clean up
+        try {
+          await scanner.stop();
+          scanner.clear();
+        } catch {
+          // Ignore cleanup errors
+        }
+        isStartingRef.current = false;
+        return;
+      }
 
       setIsScanning(true);
 
@@ -124,11 +193,17 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
         setTorchSupported(false);
       }
     } catch (err) {
+      if (!mountedRef.current) {
+        isStartingRef.current = false;
+        return;
+      }
       const errorMessage = getErrorMessage(err, 'Failed to start scanner');
-      onError?.(errorMessage);
+      onErrorRef.current?.(errorMessage);
       setIsScanning(false);
+    } finally {
+      isStartingRef.current = false;
     }
-  }, [selectedCamera, onScan, onError]);
+  }, [selectedCamera]); // Only depend on selectedCamera, use refs for callbacks
 
   // Toggle torch/flashlight
   const toggleTorch = useCallback(async () => {
@@ -159,29 +234,59 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
   }, [torchOn]);
 
   const stopScanning = useCallback(async () => {
+    // Guard against concurrent stops or stops during start
+    if (isStoppingRef.current) return;
+
+    // Wait for any pending start to complete
+    if (isStartingRef.current) {
+      // Wait a bit and try again
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (isStartingRef.current) {
+        // Still starting, let it finish - it will check mountedRef
+        return;
+      }
+    }
+
+    isStoppingRef.current = true;
+
     if (scannerRef.current) {
       try {
         await scannerRef.current.stop();
+      } catch {
+        // Ignore stop errors
+      }
+      try {
         scannerRef.current.clear();
       } catch {
-        // Ignore errors
+        // Ignore clear errors
       }
       scannerRef.current = null;
     }
-    setIsScanning(false);
-    setTorchOn(false);
-    setTorchSupported(false);
+
+    if (mountedRef.current) {
+      setIsScanning(false);
+      setTorchOn(false);
+      setTorchSupported(false);
+    }
+
+    isStoppingRef.current = false;
   }, []);
 
   // Start scanning when camera is selected
   useEffect(() => {
     if (selectedCamera && hasPermission) {
-      startScanning();
-    }
+      // Small delay to ensure DOM is ready
+      const timeoutId = setTimeout(() => {
+        if (mountedRef.current) {
+          startScanning();
+        }
+      }, 50);
 
-    return () => {
-      stopScanning();
-    };
+      return () => {
+        clearTimeout(timeoutId);
+        stopScanning();
+      };
+    }
   }, [selectedCamera, hasPermission, startScanning, stopScanning]);
 
   // Camera switch handler

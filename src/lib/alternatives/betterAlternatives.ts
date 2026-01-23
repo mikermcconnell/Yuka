@@ -137,6 +137,32 @@ function parseLabels(tags?: string[]): string[] {
 }
 
 /**
+ * Safely calculate percentage reduction, avoiding division by zero
+ * Returns null if calculation is not possible or result is invalid
+ */
+function safePercentageReduction(currentValue: number | undefined, altValue: number | undefined): number | null {
+  // Need both values to be defined and current must be positive to avoid division by zero
+  if (
+    currentValue === undefined ||
+    altValue === undefined ||
+    currentValue <= 0 ||
+    !Number.isFinite(currentValue) ||
+    !Number.isFinite(altValue)
+  ) {
+    return null;
+  }
+
+  const reduction = ((currentValue - altValue) / currentValue) * 100;
+
+  // Validate result is a reasonable finite number
+  if (!Number.isFinite(reduction) || reduction < 0 || reduction > 100) {
+    return null;
+  }
+
+  return reduction;
+}
+
+/**
  * Calculate improvements between the current product and an alternative
  */
 function calculateImprovements(
@@ -148,51 +174,52 @@ function calculateImprovements(
   const alt = alternative.nutriments;
 
   // Sugar comparison
-  if (current.sugars_100g && alt.sugars_100g) {
-    const reduction = ((current.sugars_100g - alt.sugars_100g) / current.sugars_100g) * 100;
-    if (reduction >= 20) {
-      improvements.push(`${Math.round(reduction)}% less sugar`);
-    }
+  const sugarReduction = safePercentageReduction(current.sugars_100g, alt.sugars_100g);
+  if (sugarReduction !== null && sugarReduction >= 20) {
+    improvements.push(`${Math.round(sugarReduction)}% less sugar`);
   }
 
   // Saturated fat comparison
-  if (current['saturated-fat_100g'] && alt['saturated-fat_100g']) {
-    const reduction =
-      ((current['saturated-fat_100g'] - alt['saturated-fat_100g']) / current['saturated-fat_100g']) * 100;
-    if (reduction >= 20) {
-      improvements.push(`${Math.round(reduction)}% less saturated fat`);
-    }
+  const satFatReduction = safePercentageReduction(current['saturated-fat_100g'], alt['saturated-fat_100g']);
+  if (satFatReduction !== null && satFatReduction >= 20) {
+    improvements.push(`${Math.round(satFatReduction)}% less saturated fat`);
   }
 
   // Sodium/salt comparison
-  const currentSodium = current.sodium_100g || (current.salt_100g ? current.salt_100g / 2.5 : 0);
-  const altSodium = alt.sodium_100g || (alt.salt_100g ? alt.salt_100g / 2.5 : 0);
-  if (currentSodium && altSodium) {
-    const reduction = ((currentSodium - altSodium) / currentSodium) * 100;
-    if (reduction >= 20) {
-      improvements.push(`${Math.round(reduction)}% less sodium`);
-    }
+  const currentSodium = current.sodium_100g ?? (current.salt_100g ? current.salt_100g / 2.5 : undefined);
+  const altSodium = alt.sodium_100g ?? (alt.salt_100g ? alt.salt_100g / 2.5 : undefined);
+  const sodiumReduction = safePercentageReduction(currentSodium, altSodium);
+  if (sodiumReduction !== null && sodiumReduction >= 20) {
+    improvements.push(`${Math.round(sodiumReduction)}% less sodium`);
   }
 
   // Calories comparison
-  const currentCal = current['energy-kcal_100g'] || (current.energy_100g ? current.energy_100g / 4.184 : 0);
-  const altCal = alt['energy-kcal_100g'] || (alt.energy_100g ? alt.energy_100g / 4.184 : 0);
-  if (currentCal && altCal) {
-    const reduction = ((currentCal - altCal) / currentCal) * 100;
-    if (reduction >= 15) {
-      improvements.push(`${Math.round(reduction)}% fewer calories`);
-    }
+  const currentCal = current['energy-kcal_100g'] ?? (current.energy_100g ? current.energy_100g / 4.184 : undefined);
+  const altCal = alt['energy-kcal_100g'] ?? (alt.energy_100g ? alt.energy_100g / 4.184 : undefined);
+  const calReduction = safePercentageReduction(currentCal, altCal);
+  if (calReduction !== null && calReduction >= 15) {
+    improvements.push(`${Math.round(calReduction)}% fewer calories`);
   }
 
   // Fiber comparison (higher is better)
-  if (current.fiber_100g !== undefined && alt.fiber_100g !== undefined) {
+  if (
+    current.fiber_100g !== undefined &&
+    alt.fiber_100g !== undefined &&
+    Number.isFinite(current.fiber_100g) &&
+    Number.isFinite(alt.fiber_100g)
+  ) {
     if (alt.fiber_100g > current.fiber_100g && alt.fiber_100g >= 3) {
       improvements.push('More fiber');
     }
   }
 
   // Protein comparison (higher is better)
-  if (current.proteins_100g !== undefined && alt.proteins_100g !== undefined) {
+  if (
+    current.proteins_100g !== undefined &&
+    alt.proteins_100g !== undefined &&
+    Number.isFinite(current.proteins_100g) &&
+    Number.isFinite(alt.proteins_100g)
+  ) {
     if (alt.proteins_100g > current.proteins_100g * 1.25) {
       improvements.push('More protein');
     }
