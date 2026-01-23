@@ -1,21 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-
-// Score utility functions - centralized here for reuse
-export function getScoreColor(score: number): string {
-  if (score >= 75) return '#22c55e'; // Green
-  if (score >= 50) return '#eab308'; // Yellow
-  if (score >= 25) return '#f97316'; // Orange
-  return '#ef4444'; // Red
-}
-
-export function getScoreLabel(score: number): string {
-  if (score >= 75) return 'Excellent';
-  if (score >= 50) return 'Good';
-  if (score >= 25) return 'Fair';
-  return 'Poor';
-}
+import { getScoreColor, getScoreLabel } from '@/lib/scoring/healthScore';
 
 interface ScoreGaugeProps {
   score: number;

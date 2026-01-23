@@ -314,9 +314,20 @@ function calculateOrganicBonus(labels: string[], weight: number): ScoreDetail | 
   return null;
 }
 
-// Note: getScoreColor and getScoreLabel are now in ScoreGauge component
-// Re-export for backward compatibility
-export { getScoreColor, getScoreLabel } from '@/components/product/ScoreGauge';
+// Score utility functions
+export function getScoreColor(score: number): string {
+  if (score >= 75) return '#22c55e'; // Green
+  if (score >= 50) return '#eab308'; // Yellow
+  if (score >= 25) return '#f97316'; // Orange
+  return '#ef4444'; // Red
+}
+
+export function getScoreLabel(score: number): string {
+  if (score >= 75) return 'Excellent';
+  if (score >= 50) return 'Good';
+  if (score >= 25) return 'Fair';
+  return 'Poor';
+}
 
 export function getNutriScoreColor(grade: string): string {
   const colors: Record<string, string> = {

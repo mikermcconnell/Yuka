@@ -1,5 +1,5 @@
 // Re-export scoring types for convenience
-export { ScoreBreakdown, ScoreDetail } from './scoring';
+export type { ScoreBreakdown, ScoreDetail } from './scoring';
 import type { ScoreBreakdown } from './scoring';
 
 // Open Food Facts product types

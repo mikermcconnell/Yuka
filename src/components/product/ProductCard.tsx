@@ -4,7 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Product, HistoryEntry, FavoriteEntry } from '@/types';
 import { Card } from '@/components/ui';
-import ScoreGauge, { getScoreColor } from './ScoreGauge';
+import ScoreGauge from './ScoreGauge';
+import { getScoreColor } from '@/lib/scoring/healthScore';
 
 interface ProductCardProps {
   product: Product | HistoryEntry | FavoriteEntry;
