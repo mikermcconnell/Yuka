@@ -132,16 +132,8 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
 
       scannerRef.current = scanner;
 
-      // Use video constraints for better camera quality
-      const videoConstraints: MediaTrackConstraints = {
-        deviceId: { exact: selectedCamera },
-        width: { ideal: 1920, min: 1280 },
-        height: { ideal: 1080, min: 720 },
-        facingMode: 'environment',
-      };
-
       await scanner.start(
-        { videoConstraints },
+        { deviceId: { exact: selectedCamera } },
         {
           fps: 15,
           qrbox: { width: 300, height: 180 },
