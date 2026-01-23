@@ -1,20 +1,33 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Header, LoadingSpinner } from '@/components/layout';
 import { BarcodeScanner, ManualEntry } from '@/components/scanner';
 import { useProduct } from '@/hooks/useProduct';
 import { useHistory } from '@/hooks/useHistory';
 import { useAuth } from '@/hooks/useAuth';
+import InstallPrompt from '@/components/pwa/InstallPrompt';
 
-export default function HomePage() {
+function HomePageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const { fetchProductByBarcode, loading, error } = useProduct();
   const { addProduct } = useHistory();
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');
+
+  // Check if launched from PWA shortcut
+  const isQuickScan = searchParams.get('source') === 'shortcut';
+
+  // Clear URL params after loading (cleaner UX)
+  useEffect(() => {
+    if (isQuickScan && typeof window !== 'undefined') {
+      // Replace URL without the params to clean up
+      window.history.replaceState({}, '', '/');
+    }
+  }, [isQuickScan]);
 
   const handleScan = useCallback(
     async (barcode: string) => {
@@ -100,63 +113,85 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Tips */}
-        <div className="mt-8 space-y-3">
-          <h3 className="text-sm font-medium text-gray-700">Tips for better scanning:</h3>
-          <ul className="text-sm text-gray-500 space-y-2">
-            <li className="flex items-start gap-2">
-              <span className="text-green-600">•</span>
-              Hold your phone steady over the barcode
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600">•</span>
-              Make sure there&apos;s good lighting
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600">•</span>
-              Keep the barcode flat and unobstructed
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600">•</span>
-              If scanning fails, try manual entry
-            </li>
-          </ul>
-        </div>
+        {/* Install Prompt - only show if not in quick scan mode */}
+        {!isQuickScan && <InstallPrompt />}
 
-        {/* Test barcodes for development */}
-        <div className="mt-8 p-4 bg-gray-100 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Test Barcodes:</h4>
-          <div className="space-y-1 text-xs text-gray-600">
-            <p>
-              <button
-                onClick={() => handleScan('3017620422003')}
-                className="text-green-600 hover:underline"
-              >
-                3017620422003
-              </button>{' '}
-              - Nutella
-            </p>
-            <p>
-              <button
-                onClick={() => handleScan('5449000000996')}
-                className="text-green-600 hover:underline"
-              >
-                5449000000996
-              </button>{' '}
-              - Coca-Cola
-            </p>
-            <p>
-              <button
-                onClick={() => handleScan('7622210449283')}
-                className="text-green-600 hover:underline"
-              >
-                7622210449283
-              </button>{' '}
-              - Oreo
-            </p>
+        {/* Tips - hide in quick scan mode for cleaner UX */}
+        {!isQuickScan && (
+          <div className="mt-8 space-y-3">
+            <h3 className="text-sm font-medium text-gray-700">Tips for better scanning:</h3>
+            <ul className="text-sm text-gray-500 space-y-2">
+              <li className="flex items-start gap-2">
+                <span className="text-green-600">•</span>
+                Hold your phone steady over the barcode
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600">•</span>
+                Make sure there&apos;s good lighting
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600">•</span>
+                Keep the barcode flat and unobstructed
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="text-green-600">•</span>
+                If scanning fails, try manual entry
+              </li>
+            </ul>
           </div>
-        </div>
+        )}
+
+        {/* Test barcodes for development - hide in quick scan mode */}
+        {!isQuickScan && (
+          <div className="mt-8 p-4 bg-gray-100 rounded-lg">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Test Barcodes:</h4>
+            <div className="space-y-1 text-xs text-gray-600">
+              <p>
+                <button
+                  onClick={() => handleScan('3017620422003')}
+                  className="text-green-600 hover:underline"
+                >
+                  3017620422003
+                </button>{' '}
+                - Nutella
+              </p>
+              <p>
+                <button
+                  onClick={() => handleScan('5449000000996')}
+                  className="text-green-600 hover:underline"
+                >
+                  5449000000996
+                </button>{' '}
+                - Coca-Cola
+              </p>
+              <p>
+                <button
+                  onClick={() => handleScan('7622210449283')}
+                  className="text-green-600 hover:underline"
+                >
+                  7622210449283
+                </button>{' '}
+                - Oreo
+              </p>
+            </div>
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen">
+        <Header title="Scan Product" />
+        <main className="px-4 py-6">
+          <LoadingSpinner size="lg" message="Loading..." />
+        </main>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }

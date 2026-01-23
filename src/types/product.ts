@@ -1,6 +1,6 @@
 // Re-export scoring types for convenience
-export type { ScoreBreakdown, ScoreDetail } from './scoring';
-import type { ScoreBreakdown } from './scoring';
+export type { ScoreBreakdown, ScoreDetail, PersonalizedAnalysis } from './scoring';
+import type { ScoreBreakdown, PersonalizedAnalysis } from './scoring';
 
 // Open Food Facts product types
 export interface OpenFoodFactsProduct {
@@ -40,6 +40,7 @@ export interface Nutriments {
   proteins_100g?: number;
   salt_100g?: number;
   sodium_100g?: number;
+  'omega-3-fat_100g'?: number; // For personalized cardiovascular scoring
   // Per serving
   energy_serving?: number;
   'energy-kcal_serving'?: number;
@@ -78,5 +79,7 @@ export interface Product {
   servingSize?: string;
   healthScore: number;
   scoreBreakdown: ScoreBreakdown;
+  isPersonalizedScore: boolean; // True if score uses user's genetic profile thresholds
+  personalizedAnalysis?: PersonalizedAnalysis; // Detailed genetic profile analysis (warnings, badges, etc.)
   scannedAt?: Date;
 }

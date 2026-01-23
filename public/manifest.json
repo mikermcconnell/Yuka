@@ -25,25 +25,43 @@
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Scan Product",
+      "name": "Quick Scan",
       "short_name": "Scan",
-      "description": "Scan a product barcode",
-      "url": "/",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "description": "Launch camera to scan a product barcode instantly",
+      "url": "/?mode=scan&source=shortcut",
+      "icons": [
+        {
+          "src": "/icons/scan-shortcut.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
-      "name": "History",
+      "name": "Scan History",
       "short_name": "History",
-      "description": "View scan history",
+      "description": "View your previously scanned products",
       "url": "/history",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/icons/history-shortcut.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Favorites",
       "short_name": "Favorites",
-      "description": "View favorite products",
+      "description": "View your saved favorite products",
       "url": "/favorites",
-      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+      "icons": [
+        {
+          "src": "/icons/favorites-shortcut.svg",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
     }
   ]
 }

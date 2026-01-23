@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Header, ProductCardSkeleton } from '@/components/layout';
 import { ProductListItem } from '@/components/product';
 import { Button, ConfirmModal } from '@/components/ui';
@@ -9,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function HistoryPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const { history, loading, removeEntry, clearAll } = useHistory();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -49,7 +51,7 @@ export default function HistoryPage() {
             <p className="text-gray-600 mb-6">
               Your scan history will be saved when you sign in
             </p>
-            <Button onClick={() => window.location.href = '/auth/login'}>
+            <Button onClick={() => router.push('/auth/login')}>
               Sign In
             </Button>
           </div>

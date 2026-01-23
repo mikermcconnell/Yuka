@@ -5,6 +5,10 @@ import { Product } from '@/types';
 import { fetchProduct, searchProducts } from '@/lib/api/openFoodFacts';
 import { getErrorMessage } from '@/lib/utils/formatters';
 
+interface UseProductOptions {
+  userEmail?: string | null; // For personalized health scoring based on genetic profile
+}
+
 interface UseProductReturn {
   product: Product | null;
   loading: boolean;
@@ -14,7 +18,8 @@ interface UseProductReturn {
   clearProduct: () => void;
 }
 
-export function useProduct(): UseProductReturn {
+export function useProduct(options: UseProductOptions = {}): UseProductReturn {
+  const { userEmail } = options;
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,7 +32,7 @@ export function useProduct(): UseProductReturn {
     setProduct(null);
 
     try {
-      const result = await fetchProduct(barcode);
+      const result = await fetchProduct(barcode, userEmail);
       if (result) {
         setProduct(result);
         return result;
@@ -41,7 +46,7 @@ export function useProduct(): UseProductReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userEmail]);
 
   const clearProduct = useCallback(() => {
     setProduct(null);
@@ -70,7 +75,8 @@ interface UseProductSearchReturn {
   clearSearch: () => void;
 }
 
-export function useProductSearch(): UseProductSearchReturn {
+export function useProductSearch(options: UseProductOptions = {}): UseProductSearchReturn {
+  const { userEmail } = options;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -83,7 +89,7 @@ export function useProductSearch(): UseProductSearchReturn {
     setError(null);
 
     try {
-      const result = await searchProducts(query, page);
+      const result = await searchProducts(query, page, 20, userEmail);
       if (page === 1) {
         setProducts(result.products);
       } else {
@@ -97,7 +103,7 @@ export function useProductSearch(): UseProductSearchReturn {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userEmail]);
 
   const loadMore = useCallback(async () => {
     if (currentQuery && !loading) {

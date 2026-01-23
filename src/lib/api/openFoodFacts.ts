@@ -1,5 +1,6 @@
 import { OpenFoodFactsProduct, OpenFoodFactsResponse, Product } from '@/types';
 import { calculateHealthScore } from '../scoring/healthScore';
+import { analyzeForProfile } from '../scoring/personalizedAnalysis';
 
 const API_BASE_URL = 'https://world.openfoodfacts.org/api/v0';
 const CACHE_KEY_PREFIX = 'off_product_';
@@ -43,11 +44,14 @@ function setCachedProduct(barcode: string, data: OpenFoodFactsProduct): void {
   }
 }
 
-export async function fetchProduct(barcode: string): Promise<Product | null> {
+export async function fetchProduct(
+  barcode: string,
+  userEmail?: string | null
+): Promise<Product | null> {
   // Check cache first
   const cached = getCachedProduct(barcode);
   if (cached) {
-    return transformProduct(cached, barcode);
+    return transformProduct(cached, barcode, userEmail);
   }
 
   try {
@@ -70,7 +74,7 @@ export async function fetchProduct(barcode: string): Promise<Product | null> {
     // Cache the result
     setCachedProduct(barcode, data.product);
 
-    return transformProduct(data.product, barcode);
+    return transformProduct(data.product, barcode, userEmail);
   } catch (error) {
     console.error('Error fetching product:', error);
     throw error;
@@ -80,7 +84,8 @@ export async function fetchProduct(barcode: string): Promise<Product | null> {
 export async function searchProducts(
   query: string,
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  userEmail?: string | null
 ): Promise<{ products: Product[]; count: number; page: number }> {
   try {
     const response = await fetch(
@@ -100,7 +105,7 @@ export async function searchProducts(
 
     const products = (data.products || [])
       .filter((p: OpenFoodFactsProduct) => p.product_name)
-      .map((p: OpenFoodFactsProduct) => transformProduct(p, p.code));
+      .map((p: OpenFoodFactsProduct) => transformProduct(p, p.code, userEmail));
 
     return {
       products,
@@ -115,7 +120,8 @@ export async function searchProducts(
 
 function transformProduct(
   offProduct: OpenFoodFactsProduct,
-  barcode: string
+  barcode: string,
+  userEmail?: string | null
 ): Product {
   const nutriments = offProduct.nutriments || {};
   const additives = parseAdditives(offProduct.additives_tags);
@@ -123,12 +129,23 @@ function transformProduct(
   const categories = parseCategories(offProduct.categories_tags);
   const labels = parseLabels(offProduct.labels_tags);
 
-  const { score, breakdown } = calculateHealthScore({
+  const { score, breakdown, isPersonalized } = calculateHealthScore({
     nutriments,
     additives,
     novaGroup: offProduct.nova_group,
     labels,
+    categories, // Pass categories for beverage detection
+    userEmail,
   });
+
+  // Generate personalized analysis (warnings, badges, explanations) if user has genetic profile
+  const personalizedAnalysis = analyzeForProfile(
+    nutriments,
+    additives,
+    labels,
+    offProduct.ingredients_text,
+    userEmail
+  );
 
   return {
     barcode,
@@ -147,6 +164,8 @@ function transformProduct(
     servingSize: offProduct.serving_size,
     healthScore: score,
     scoreBreakdown: breakdown,
+    isPersonalizedScore: isPersonalized,
+    personalizedAnalysis: personalizedAnalysis || undefined,
   };
 }
 

@@ -35,7 +35,7 @@ export const ADDITIVES: Record<string, Additive> = {
   E334: { code: 'E334', name: 'Tartaric Acid', risk: 'safe', description: 'Natural acid from grapes' },
   E335: { code: 'E335', name: 'Sodium Tartrates', risk: 'safe', description: 'Salt of tartaric acid' },
   E336: { code: 'E336', name: 'Potassium Tartrate', risk: 'safe', description: 'Cream of tartar' },
-  E338: { code: 'E338', name: 'Phosphoric Acid', risk: 'safe', description: 'Acidifier' },
+  E338: { code: 'E338', name: 'Phosphoric Acid', risk: 'moderate', description: 'Acidifier used in soft drinks', concerns: ['May affect bone mineral density', 'Marker of ultra-processed beverages'] },
   E375: { code: 'E375', name: 'Nicotinic Acid', risk: 'safe', description: 'Vitamin B3 (Niacin)' },
   E392: { code: 'E392', name: 'Rosemary Extract', risk: 'safe', description: 'Natural antioxidant' },
   E400: { code: 'E400', name: 'Alginic Acid', risk: 'safe', description: 'Natural thickener from seaweed' },

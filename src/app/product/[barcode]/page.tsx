@@ -1,10 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Image from 'next/image';
 import { Header, ProductDetailsSkeleton } from '@/components/layout';
-import { ScoreGauge, ScoreBar, NutriScore, NovaGroup, NutritionTable, IngredientList } from '@/components/product';
+import {
+  ScoreGauge,
+  ScoreBar,
+  NutriScore,
+  NovaGroup,
+  NutritionTable,
+  IngredientList,
+  AdditivesList,
+  BetterAlternatives,
+  PersonalizedBanner,
+  PersonalizedInsights,
+} from '@/components/product';
 import { Button } from '@/components/ui';
 import { useProduct } from '@/hooks/useProduct';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -14,9 +25,10 @@ export default function ProductPage() {
   const params = useParams();
   const barcode = params.barcode as string;
   const { user } = useAuth();
-  const { product, loading, error, notFound, fetchProductByBarcode } = useProduct();
+  const { product, loading, error, notFound, fetchProductByBarcode } = useProduct({
+    userEmail: user?.email,
+  });
   const { favorites, toggleFavorite } = useFavorites();
-  const [activeTab, setActiveTab] = useState<'nutrition' | 'ingredients'>('nutrition');
 
   const isFavorite = favorites.some((f) => f.barcode === barcode);
 
@@ -100,6 +112,11 @@ export default function ProductPage() {
           </div>
         )}
 
+        {/* Personalized Banner */}
+        {product.isPersonalizedScore && (
+          <PersonalizedBanner userName={user?.displayName?.split(' ')[0] || 'your'} />
+        )}
+
         {/* Product Info & Score */}
         <div className="flex items-start gap-4">
           <div className="flex-1">
@@ -181,44 +198,41 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('nutrition')}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'nutrition'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Nutrition
-          </button>
-          <button
-            onClick={() => setActiveTab('ingredients')}
-            className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === 'ingredients'
-                ? 'border-green-600 text-green-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Ingredients
-          </button>
+        {/* Personalized Insights Section */}
+        {product.personalizedAnalysis && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <PersonalizedInsights
+              analysis={product.personalizedAnalysis}
+              userName={user?.displayName?.split(' ')[0]}
+              variant="full"
+            />
+          </div>
+        )}
+
+        {/* Additives Section */}
+        {product.additives.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm">
+            <AdditivesList additives={product.additives} />
+          </div>
+        )}
+
+        {/* Better Alternatives Section */}
+        <BetterAlternatives product={product} />
+
+        {/* Nutrition Section */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <NutritionTable
+            nutriments={product.nutriments}
+            servingSize={product.servingSize}
+          />
         </div>
 
-        {/* Tab content */}
+        {/* Ingredients Section */}
         <div className="bg-white rounded-2xl p-4 shadow-sm">
-          {activeTab === 'nutrition' ? (
-            <NutritionTable
-              nutriments={product.nutriments}
-              servingSize={product.servingSize}
-            />
-          ) : (
-            <IngredientList
-              ingredients={product.ingredients}
-              additives={product.additives}
-              allergens={product.allergens}
-            />
-          )}
+          <IngredientList
+            ingredients={product.ingredients}
+            allergens={product.allergens}
+          />
         </div>
 
         {/* Categories and labels */}

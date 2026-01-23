@@ -16,6 +16,8 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
   const [selectedCamera, setSelectedCamera] = useState<string>('');
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
   const lastScannedRef = useRef<string>('');
   const lastScannedTimeRef = useRef<number>(0);
 
@@ -38,7 +40,12 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
       })
       .catch((err) => {
         setHasPermission(false);
-        onError?.(err.message || 'Camera permission denied');
+        const errorMessage = err.message || 'Camera permission denied';
+        if (onError) {
+          onError(errorMessage);
+        } else {
+          console.error('BarcodeScanner camera error:', errorMessage);
+        }
       });
   }, [onError]);
 
@@ -73,8 +80,8 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
       await scanner.start(
         selectedCamera,
         {
-          fps: 10,
-          qrbox: { width: 250, height: 150 },
+          fps: 15,
+          qrbox: { width: 300, height: 180 },
           aspectRatio: 1.777778,
         },
         (decodedText) => {
@@ -103,12 +110,53 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
       );
 
       setIsScanning(true);
+
+      // Check if torch is supported
+      try {
+        const videoElement = document.querySelector('#barcode-scanner video') as HTMLVideoElement;
+        if (videoElement && videoElement.srcObject) {
+          const stream = videoElement.srcObject as MediaStream;
+          const track = stream.getVideoTracks()[0];
+          const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+          setTorchSupported(!!capabilities.torch);
+        }
+      } catch {
+        setTorchSupported(false);
+      }
     } catch (err) {
       const errorMessage = getErrorMessage(err, 'Failed to start scanner');
       onError?.(errorMessage);
       setIsScanning(false);
     }
   }, [selectedCamera, onScan, onError]);
+
+  // Toggle torch/flashlight
+  const toggleTorch = useCallback(async () => {
+    try {
+      const videoElement = document.querySelector('#barcode-scanner video') as HTMLVideoElement;
+      if (videoElement && videoElement.srcObject) {
+        const stream = videoElement.srcObject as MediaStream;
+        const track = stream.getVideoTracks()[0];
+
+        // Check if torch is actually supported before attempting to use it
+        const capabilities = track.getCapabilities() as MediaTrackCapabilities & { torch?: boolean };
+        if (!capabilities.torch) {
+          console.warn('Torch not supported on this device');
+          setTorchSupported(false);
+          return;
+        }
+
+        const newTorchState = !torchOn;
+        await track.applyConstraints({
+          advanced: [{ torch: newTorchState } as MediaTrackConstraintSet & { torch: boolean }],
+        });
+        setTorchOn(newTorchState);
+      }
+    } catch (err) {
+      console.error('Failed to toggle torch:', err);
+      setTorchSupported(false);
+    }
+  }, [torchOn]);
 
   const stopScanning = useCallback(async () => {
     if (scannerRef.current) {
@@ -121,6 +169,8 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
       scannerRef.current = null;
     }
     setIsScanning(false);
+    setTorchOn(false);
+    setTorchSupported(false);
   }, []);
 
   // Start scanning when camera is selected
@@ -188,17 +238,17 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
         {/* Scanning overlay */}
         {isScanning && (
           <div className="absolute inset-0 pointer-events-none">
-            {/* Corner markers */}
+            {/* Corner markers - sized to match 300x180 scanning box */}
             <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative w-64 h-40">
+              <div className="relative" style={{ width: '300px', height: '180px' }}>
                 {/* Top-left corner */}
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-green-500 rounded-tl-lg" />
+                <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-green-500 rounded-tl-lg" />
                 {/* Top-right corner */}
-                <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-green-500 rounded-tr-lg" />
+                <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-green-500 rounded-tr-lg" />
                 {/* Bottom-left corner */}
-                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-green-500 rounded-bl-lg" />
+                <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-green-500 rounded-bl-lg" />
                 {/* Bottom-right corner */}
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-green-500 rounded-br-lg" />
+                <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-green-500 rounded-br-lg" />
                 {/* Scanning line */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-green-500 animate-scan" />
               </div>
@@ -208,22 +258,54 @@ export default function BarcodeScanner({ onScan, onError }: BarcodeScannerProps)
       </div>
 
       {/* Camera controls */}
-      {cameras.length > 1 && (
-        <button
-          onClick={handleCameraSwitch}
-          className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
-          aria-label="Switch camera"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
-        </button>
-      )}
+      <div className="absolute top-4 right-4 flex gap-2">
+        {/* Torch/Flash button */}
+        {torchSupported && (
+          <button
+            onClick={toggleTorch}
+            className={`p-2 rounded-full text-white transition-colors ${
+              torchOn ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-black/50 hover:bg-black/70'
+            }`}
+            aria-label={torchOn ? 'Turn off flash' : 'Turn on flash'}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {torchOn ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                />
+              )}
+            </svg>
+          </button>
+        )}
+
+        {/* Camera switch button */}
+        {cameras.length > 1 && (
+          <button
+            onClick={handleCameraSwitch}
+            className="p-2 bg-black/50 rounded-full text-white hover:bg-black/70 transition-colors"
+            aria-label="Switch camera"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* Instructions */}
       <p className="text-center text-gray-500 text-sm mt-4">

@@ -15,6 +15,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { db } from './config';
+import { safeFirestoreOperation } from './errors';
 import { Product, HistoryEntry, FavoriteEntry, ProductList, ProductRating } from '@/types';
 
 // History functions
@@ -22,59 +23,67 @@ export async function addToHistory(
   userId: string,
   product: Product
 ): Promise<string> {
-  const historyRef = collection(db(), 'users', userId, 'history');
-  const docRef = doc(historyRef);
+  return safeFirestoreOperation(async () => {
+    const historyRef = collection(db(), 'users', userId, 'history');
+    const docRef = doc(historyRef);
 
-  const entry = {
-    barcode: product.barcode,
-    productName: product.name,
-    brand: product.brand,
-    imageUrl: product.imageUrl,
-    healthScore: product.healthScore,
-    nutritionGrade: product.nutritionGrade,
-    scannedAt: serverTimestamp(),
-  };
+    const entry = {
+      barcode: product.barcode,
+      productName: product.name,
+      brand: product.brand,
+      imageUrl: product.imageUrl,
+      healthScore: product.healthScore,
+      nutritionGrade: product.nutritionGrade,
+      scannedAt: serverTimestamp(),
+    };
 
-  await setDoc(docRef, entry);
-  return docRef.id;
+    await setDoc(docRef, entry);
+    return docRef.id;
+  }, 'addToHistory');
 }
 
 export async function getHistory(
   userId: string,
   limitCount: number = 50
 ): Promise<HistoryEntry[]> {
-  const historyRef = collection(db(), 'users', userId, 'history');
-  const q = query(historyRef, orderBy('scannedAt', 'desc'), limit(limitCount));
-  const snapshot = await getDocs(q);
+  return safeFirestoreOperation(async () => {
+    const historyRef = collection(db(), 'users', userId, 'history');
+    const q = query(historyRef, orderBy('scannedAt', 'desc'), limit(limitCount));
+    const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      barcode: data.barcode,
-      productName: data.productName,
-      brand: data.brand,
-      imageUrl: data.imageUrl,
-      healthScore: data.healthScore,
-      nutritionGrade: data.nutritionGrade,
-      scannedAt: (data.scannedAt as Timestamp)?.toDate() || new Date(),
-    };
-  });
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        barcode: data.barcode,
+        productName: data.productName,
+        brand: data.brand,
+        imageUrl: data.imageUrl,
+        healthScore: data.healthScore,
+        nutritionGrade: data.nutritionGrade,
+        scannedAt: (data.scannedAt as Timestamp)?.toDate() || new Date(),
+      };
+    });
+  }, 'getHistory');
 }
 
 export async function deleteHistoryEntry(
   userId: string,
   entryId: string
 ): Promise<void> {
-  const entryRef = doc(db(), 'users', userId, 'history', entryId);
-  await deleteDoc(entryRef);
+  return safeFirestoreOperation(async () => {
+    const entryRef = doc(db(), 'users', userId, 'history', entryId);
+    await deleteDoc(entryRef);
+  }, 'deleteHistoryEntry');
 }
 
 export async function clearHistory(userId: string): Promise<void> {
-  const historyRef = collection(db(), 'users', userId, 'history');
-  const snapshot = await getDocs(historyRef);
-  const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
-  await Promise.all(deletePromises);
+  return safeFirestoreOperation(async () => {
+    const historyRef = collection(db(), 'users', userId, 'history');
+    const snapshot = await getDocs(historyRef);
+    const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+  }, 'clearHistory');
 }
 
 // Favorites functions
@@ -82,55 +91,63 @@ export async function addToFavorites(
   userId: string,
   product: Product
 ): Promise<void> {
-  const favoriteRef = doc(db(), 'users', userId, 'favorites', product.barcode);
+  return safeFirestoreOperation(async () => {
+    const favoriteRef = doc(db(), 'users', userId, 'favorites', product.barcode);
 
-  const entry = {
-    barcode: product.barcode,
-    productName: product.name,
-    brand: product.brand,
-    imageUrl: product.imageUrl,
-    healthScore: product.healthScore,
-    nutritionGrade: product.nutritionGrade,
-    addedAt: serverTimestamp(),
-  };
+    const entry = {
+      barcode: product.barcode,
+      productName: product.name,
+      brand: product.brand,
+      imageUrl: product.imageUrl,
+      healthScore: product.healthScore,
+      nutritionGrade: product.nutritionGrade,
+      addedAt: serverTimestamp(),
+    };
 
-  await setDoc(favoriteRef, entry);
+    await setDoc(favoriteRef, entry);
+  }, 'addToFavorites');
 }
 
 export async function removeFromFavorites(
   userId: string,
   barcode: string
 ): Promise<void> {
-  const favoriteRef = doc(db(), 'users', userId, 'favorites', barcode);
-  await deleteDoc(favoriteRef);
+  return safeFirestoreOperation(async () => {
+    const favoriteRef = doc(db(), 'users', userId, 'favorites', barcode);
+    await deleteDoc(favoriteRef);
+  }, 'removeFromFavorites');
 }
 
 export async function getFavorites(userId: string): Promise<FavoriteEntry[]> {
-  const favoritesRef = collection(db(), 'users', userId, 'favorites');
-  const q = query(favoritesRef, orderBy('addedAt', 'desc'));
-  const snapshot = await getDocs(q);
+  return safeFirestoreOperation(async () => {
+    const favoritesRef = collection(db(), 'users', userId, 'favorites');
+    const q = query(favoritesRef, orderBy('addedAt', 'desc'));
+    const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      barcode: data.barcode,
-      productName: data.productName,
-      brand: data.brand,
-      imageUrl: data.imageUrl,
-      healthScore: data.healthScore,
-      nutritionGrade: data.nutritionGrade,
-      addedAt: (data.addedAt as Timestamp)?.toDate() || new Date(),
-    };
-  });
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        barcode: data.barcode,
+        productName: data.productName,
+        brand: data.brand,
+        imageUrl: data.imageUrl,
+        healthScore: data.healthScore,
+        nutritionGrade: data.nutritionGrade,
+        addedAt: (data.addedAt as Timestamp)?.toDate() || new Date(),
+      };
+    });
+  }, 'getFavorites');
 }
 
 export async function isFavorite(
   userId: string,
   barcode: string
 ): Promise<boolean> {
-  const favoriteRef = doc(db(), 'users', userId, 'favorites', barcode);
-  const snapshot = await getDoc(favoriteRef);
-  return snapshot.exists();
+  return safeFirestoreOperation(async () => {
+    const favoriteRef = doc(db(), 'users', userId, 'favorites', barcode);
+    const snapshot = await getDoc(favoriteRef);
+    return snapshot.exists();
+  }, 'isFavorite');
 }
 
 // Lists functions
@@ -139,62 +156,68 @@ export async function createList(
   name: string,
   description?: string
 ): Promise<string> {
-  const listsRef = collection(db(), 'users', userId, 'lists');
-  const docRef = doc(listsRef);
+  return safeFirestoreOperation(async () => {
+    const listsRef = collection(db(), 'users', userId, 'lists');
+    const docRef = doc(listsRef);
 
-  const list: Omit<ProductList, 'id' | 'createdAt' | 'updatedAt'> & {
-    createdAt: ReturnType<typeof serverTimestamp>;
-    updatedAt: ReturnType<typeof serverTimestamp>;
-  } = {
-    name,
-    description,
-    products: [],
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+    const list: Omit<ProductList, 'id' | 'createdAt' | 'updatedAt'> & {
+      createdAt: ReturnType<typeof serverTimestamp>;
+      updatedAt: ReturnType<typeof serverTimestamp>;
+    } = {
+      name,
+      description,
+      products: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-  await setDoc(docRef, list);
-  return docRef.id;
+    await setDoc(docRef, list);
+    return docRef.id;
+  }, 'createList');
 }
 
 export async function getLists(userId: string): Promise<ProductList[]> {
-  const listsRef = collection(db(), 'users', userId, 'lists');
-  const q = query(listsRef, orderBy('updatedAt', 'desc'));
-  const snapshot = await getDocs(q);
+  return safeFirestoreOperation(async () => {
+    const listsRef = collection(db(), 'users', userId, 'lists');
+    const q = query(listsRef, orderBy('updatedAt', 'desc'));
+    const snapshot = await getDocs(q);
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return {
-      id: doc.id,
-      name: data.name,
-      description: data.description,
-      products: data.products || [],
-      createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
-      updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-    };
-  });
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        name: data.name,
+        description: data.description,
+        products: data.products || [],
+        createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+        updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+      };
+    });
+  }, 'getLists');
 }
 
 export async function getList(
   userId: string,
   listId: string
 ): Promise<ProductList | null> {
-  const listRef = doc(db(), 'users', userId, 'lists', listId);
-  const snapshot = await getDoc(listRef);
+  return safeFirestoreOperation(async () => {
+    const listRef = doc(db(), 'users', userId, 'lists', listId);
+    const snapshot = await getDoc(listRef);
 
-  if (!snapshot.exists()) {
-    return null;
-  }
+    if (!snapshot.exists()) {
+      return null;
+    }
 
-  const data = snapshot.data();
-  return {
-    id: snapshot.id,
-    name: data.name,
-    description: data.description,
-    products: data.products || [],
-    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
-    updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-  };
+    const data = snapshot.data();
+    return {
+      id: snapshot.id,
+      name: data.name,
+      description: data.description,
+      products: data.products || [],
+      createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+      updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+    };
+  }, 'getList');
 }
 
 export async function addToList(
@@ -202,11 +225,13 @@ export async function addToList(
   listId: string,
   barcode: string
 ): Promise<void> {
-  const listRef = doc(db(), 'users', userId, 'lists', listId);
-  await updateDoc(listRef, {
-    products: arrayUnion(barcode),
-    updatedAt: serverTimestamp(),
-  });
+  return safeFirestoreOperation(async () => {
+    const listRef = doc(db(), 'users', userId, 'lists', listId);
+    await updateDoc(listRef, {
+      products: arrayUnion(barcode),
+      updatedAt: serverTimestamp(),
+    });
+  }, 'addToList');
 }
 
 export async function removeFromList(
@@ -214,16 +239,20 @@ export async function removeFromList(
   listId: string,
   barcode: string
 ): Promise<void> {
-  const listRef = doc(db(), 'users', userId, 'lists', listId);
-  await updateDoc(listRef, {
-    products: arrayRemove(barcode),
-    updatedAt: serverTimestamp(),
-  });
+  return safeFirestoreOperation(async () => {
+    const listRef = doc(db(), 'users', userId, 'lists', listId);
+    await updateDoc(listRef, {
+      products: arrayRemove(barcode),
+      updatedAt: serverTimestamp(),
+    });
+  }, 'removeFromList');
 }
 
 export async function deleteList(userId: string, listId: string): Promise<void> {
-  const listRef = doc(db(), 'users', userId, 'lists', listId);
-  await deleteDoc(listRef);
+  return safeFirestoreOperation(async () => {
+    const listRef = doc(db(), 'users', userId, 'lists', listId);
+    await deleteDoc(listRef);
+  }, 'deleteList');
 }
 
 export async function updateListName(
@@ -232,12 +261,14 @@ export async function updateListName(
   name: string,
   description?: string
 ): Promise<void> {
-  const listRef = doc(db(), 'users', userId, 'lists', listId);
-  await updateDoc(listRef, {
-    name,
-    description,
-    updatedAt: serverTimestamp(),
-  });
+  return safeFirestoreOperation(async () => {
+    const listRef = doc(db(), 'users', userId, 'lists', listId);
+    await updateDoc(listRef, {
+      name,
+      description,
+      updatedAt: serverTimestamp(),
+    });
+  }, 'updateListName');
 }
 
 // Ratings functions
@@ -247,47 +278,53 @@ export async function setRating(
   rating: number,
   notes?: string
 ): Promise<void> {
-  const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
-  const existing = await getDoc(ratingRef);
+  return safeFirestoreOperation(async () => {
+    const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
+    const existing = await getDoc(ratingRef);
 
-  const ratingData = {
-    barcode,
-    rating,
-    notes,
-    createdAt: existing.exists()
-      ? existing.data().createdAt
-      : serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  };
+    const ratingData = {
+      barcode,
+      rating,
+      notes,
+      createdAt: existing.exists()
+        ? existing.data().createdAt
+        : serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
 
-  await setDoc(ratingRef, ratingData);
+    await setDoc(ratingRef, ratingData);
+  }, 'setRating');
 }
 
 export async function getRating(
   userId: string,
   barcode: string
 ): Promise<ProductRating | null> {
-  const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
-  const snapshot = await getDoc(ratingRef);
+  return safeFirestoreOperation(async () => {
+    const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
+    const snapshot = await getDoc(ratingRef);
 
-  if (!snapshot.exists()) {
-    return null;
-  }
+    if (!snapshot.exists()) {
+      return null;
+    }
 
-  const data = snapshot.data();
-  return {
-    barcode: data.barcode,
-    rating: data.rating,
-    notes: data.notes,
-    createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
-    updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
-  };
+    const data = snapshot.data();
+    return {
+      barcode: data.barcode,
+      rating: data.rating,
+      notes: data.notes,
+      createdAt: (data.createdAt as Timestamp)?.toDate() || new Date(),
+      updatedAt: (data.updatedAt as Timestamp)?.toDate() || new Date(),
+    };
+  }, 'getRating');
 }
 
 export async function deleteRating(
   userId: string,
   barcode: string
 ): Promise<void> {
-  const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
-  await deleteDoc(ratingRef);
+  return safeFirestoreOperation(async () => {
+    const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
+    await deleteDoc(ratingRef);
+  }, 'deleteRating');
 }
