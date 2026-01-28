@@ -54,6 +54,17 @@ service cloud.firestore {
           && request.resource.data.rating <= 5;
         allow delete: if isAuthenticated() && isOwner(userId);
       }
+
+      // Beer logs subcollection
+      match /beerLogs/{logId} {
+        allow read: if isAuthenticated() && isOwner(userId);
+        allow create: if isAuthenticated() && isOwner(userId)
+          && request.resource.data.date is string
+          && request.resource.data.type in ['pint', 'can']
+          && request.resource.data.ounces is number
+          && request.resource.data.ounces > 0;
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
     }
   }
 }

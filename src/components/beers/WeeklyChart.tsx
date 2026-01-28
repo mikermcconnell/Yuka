@@ -1,0 +1,162 @@
+'use client';
+
+import { WeekData } from '@/types/beers';
+import { WEEKLY_GOAL } from '@/lib/beers/constants';
+import { getDayName, formatDateString } from '@/lib/beers/calculations';
+
+interface WeeklyChartProps {
+  weekData: WeekData;
+}
+
+export default function WeeklyChart({ weekData }: WeeklyChartProps) {
+  const { days, totalOunces } = weekData;
+
+  // Find max value for scaling (at least WEEKLY_GOAL / 7 for reference)
+  const dailyGoal = WEEKLY_GOAL / 7;
+  const maxDaily = Math.max(...days.map((d) => d.totalOunces), dailyGoal * 1.5);
+
+  const today = formatDateString(new Date());
+
+  // Chart dimensions
+  const chartHeight = 160;
+  const barWidth = 32;
+  const barGap = 8;
+  const chartWidth = (barWidth + barGap) * 7 - barGap;
+  const goalLineY = chartHeight - (dailyGoal / maxDaily) * chartHeight;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-lg font-semibold text-gray-900">This Week</h2>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-gray-900">{totalOunces}</div>
+          <div className="text-xs text-gray-500">of {WEEKLY_GOAL}oz goal</div>
+        </div>
+      </div>
+
+      {/* SVG Chart */}
+      <div className="flex justify-center">
+        <svg
+          width={chartWidth + 40}
+          height={chartHeight + 40}
+          viewBox={`0 0 ${chartWidth + 40} ${chartHeight + 40}`}
+          className="overflow-visible"
+        >
+          {/* Goal line */}
+          <line
+            x1={20}
+            y1={goalLineY + 10}
+            x2={chartWidth + 20}
+            y2={goalLineY + 10}
+            stroke="#f59e0b"
+            strokeWidth={2}
+            strokeDasharray="4 4"
+          />
+          <text
+            x={chartWidth + 25}
+            y={goalLineY + 14}
+            fill="#f59e0b"
+            fontSize={10}
+            fontWeight={500}
+          >
+            {Math.round(dailyGoal)}
+          </text>
+
+          {/* Bars */}
+          {days.map((day, i) => {
+            const barHeight =
+              day.totalOunces > 0
+                ? (day.totalOunces / maxDaily) * chartHeight
+                : 0;
+            const x = 20 + i * (barWidth + barGap);
+            const y = chartHeight - barHeight + 10;
+            const isToday = day.date === today;
+            const isOverGoal = day.totalOunces > dailyGoal;
+
+            // Determine bar color
+            let barColor = '#e5e7eb'; // empty/gray
+            if (day.totalOunces > 0) {
+              barColor = isOverGoal ? '#f59e0b' : '#22c55e'; // amber if over, green if under
+            }
+
+            const dayDate = new Date(day.date + 'T12:00:00');
+
+            return (
+              <g key={day.date}>
+                {/* Bar background (for empty state) */}
+                <rect
+                  x={x}
+                  y={10}
+                  width={barWidth}
+                  height={chartHeight}
+                  fill="#f3f4f6"
+                  rx={4}
+                />
+
+                {/* Actual bar */}
+                {barHeight > 0 && (
+                  <rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    fill={barColor}
+                    rx={4}
+                  />
+                )}
+
+                {/* Today indicator */}
+                {isToday && (
+                  <circle
+                    cx={x + barWidth / 2}
+                    cy={chartHeight + 30}
+                    r={3}
+                    fill="#3b82f6"
+                  />
+                )}
+
+                {/* Day label */}
+                <text
+                  x={x + barWidth / 2}
+                  y={chartHeight + 25}
+                  textAnchor="middle"
+                  fill={isToday ? '#3b82f6' : '#9ca3af'}
+                  fontSize={11}
+                  fontWeight={isToday ? 600 : 400}
+                >
+                  {getDayName(dayDate)}
+                </text>
+
+                {/* Value on top of bar if non-zero */}
+                {day.totalOunces > 0 && (
+                  <text
+                    x={x + barWidth / 2}
+                    y={y - 4}
+                    textAnchor="middle"
+                    fill="#6b7280"
+                    fontSize={10}
+                    fontWeight={500}
+                  >
+                    {day.totalOunces}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center gap-6 mt-4 text-xs text-gray-500">
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-green-500" />
+          <span>Under goal</span>
+        </div>
+        <div className="flex items-center gap-1">
+          <div className="w-3 h-3 rounded bg-amber-500" />
+          <span>Over goal</span>
+        </div>
+      </div>
+    </div>
+  );
+}

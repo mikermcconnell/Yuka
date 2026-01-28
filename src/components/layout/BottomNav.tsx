@@ -105,6 +105,31 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+    href: '/beers',
+    label: 'Beers',
+    icon: (
+      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M17 8h1a3 3 0 010 6h-1m-7-6v8m0 0H7m3 0h3M6 8h8a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2zM9 4h2v4H9V4z"
+        />
+      </svg>
+    ),
+    activeIcon: (
+      <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M17 8h1a3 3 0 010 6h-1V8z" />
+        <path
+          fillRule="evenodd"
+          d="M4 10a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8zm6 1a1 1 0 011 1v4a1 1 0 11-2 0v-4a1 1 0 011-1z"
+          clipRule="evenodd"
+        />
+        <path d="M9 4a1 1 0 011-1h0a1 1 0 011 1v3a1 1 0 01-1 1h0a1 1 0 01-1-1V4z" />
+      </svg>
+    ),
+  },
 ];
 
 export default function BottomNav() {

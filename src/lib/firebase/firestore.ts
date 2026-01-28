@@ -13,10 +13,14 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  where,
 } from 'firebase/firestore';
 import { db } from './config';
 import { safeFirestoreOperation } from './errors';
 import { Product, HistoryEntry, FavoriteEntry, ProductList, ProductRating } from '@/types';
+import { BeerLog, BeerType } from '@/types/beers';
+import { PINT_OUNCES, CAN_OUNCES } from '@/lib/beers/constants';
+import { formatDateString } from '@/lib/beers/calculations';
 
 // History functions
 export async function addToHistory(
@@ -327,4 +331,68 @@ export async function deleteRating(
     const ratingRef = doc(db(), 'users', userId, 'ratings', barcode);
     await deleteDoc(ratingRef);
   }, 'deleteRating');
+}
+
+// Beer log functions
+export async function addBeerLog(
+  userId: string,
+  type: BeerType
+): Promise<string> {
+  return safeFirestoreOperation(async () => {
+    const beerLogsRef = collection(db(), 'users', userId, 'beerLogs');
+    const docRef = doc(beerLogsRef);
+
+    const now = new Date();
+    const dateStr = formatDateString(now);
+    const ounces = type === 'pint' ? PINT_OUNCES : CAN_OUNCES;
+
+    const entry = {
+      date: dateStr,
+      type,
+      ounces,
+      timestamp: serverTimestamp(),
+    };
+
+    await setDoc(docRef, entry);
+    return docRef.id;
+  }, 'addBeerLog');
+}
+
+export async function deleteBeerLog(
+  userId: string,
+  logId: string
+): Promise<void> {
+  return safeFirestoreOperation(async () => {
+    const logRef = doc(db(), 'users', userId, 'beerLogs', logId);
+    await deleteDoc(logRef);
+  }, 'deleteBeerLog');
+}
+
+export async function getBeerLogsForDateRange(
+  userId: string,
+  startDate: string,
+  endDate: string
+): Promise<BeerLog[]> {
+  return safeFirestoreOperation(async () => {
+    const beerLogsRef = collection(db(), 'users', userId, 'beerLogs');
+    const q = query(
+      beerLogsRef,
+      where('date', '>=', startDate),
+      where('date', '<=', endDate),
+      orderBy('date', 'asc'),
+      orderBy('timestamp', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        date: data.date,
+        type: data.type as BeerType,
+        ounces: data.ounces,
+        timestamp: (data.timestamp as Timestamp)?.toDate() || new Date(),
+      };
+    });
+  }, 'getBeerLogsForDateRange');
 }
