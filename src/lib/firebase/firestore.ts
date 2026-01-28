@@ -336,14 +336,14 @@ export async function deleteRating(
 // Beer log functions
 export async function addBeerLog(
   userId: string,
-  type: BeerType
+  type: BeerType,
+  date?: string
 ): Promise<string> {
   return safeFirestoreOperation(async () => {
     const beerLogsRef = collection(db(), 'users', userId, 'beerLogs');
     const docRef = doc(beerLogsRef);
 
-    const now = new Date();
-    const dateStr = formatDateString(now);
+    const dateStr = date || formatDateString(new Date());
     const ounces = type === 'pint' ? PINT_OUNCES : CAN_OUNCES;
 
     const entry = {

@@ -7,8 +7,27 @@ import { formatDateString, calculateDailyTotal } from '@/lib/beers/calculations'
 
 interface DailyTrackerProps {
   logs: BeerLog[];
-  onAddLog: (type: BeerType) => Promise<void>;
+  onAddLog: (type: BeerType, date?: string) => Promise<void>;
   onRemoveLog: (logId: string) => Promise<void>;
+}
+
+function formatDayHeader(date: Date): string {
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const dateStr = formatDateString(date);
+  const todayStr = formatDateString(today);
+  const yesterdayStr = formatDateString(yesterday);
+
+  if (dateStr === todayStr) return 'Today';
+  if (dateStr === yesterdayStr) return 'Yesterday';
+
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export default function DailyTracker({
@@ -18,25 +37,43 @@ export default function DailyTracker({
 }: DailyTrackerProps) {
   const [adding, setAdding] = useState<BeerType | null>(null);
   const [undoing, setUndoing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const today = formatDateString(new Date());
-  const { totalOunces, logs: todayLogs } = calculateDailyTotal(logs, today);
+  const selectedDateStr = formatDateString(selectedDate);
+  const isToday = selectedDateStr === today;
+  const { totalOunces, logs: dayLogs } = calculateDailyTotal(logs, selectedDateStr);
+
+  const goToPreviousDay = () => {
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    setSelectedDate(prev);
+  };
+
+  const goToNextDay = () => {
+    const next = new Date(selectedDate);
+    next.setDate(next.getDate() + 1);
+    // Don't allow going past today
+    if (formatDateString(next) <= today) {
+      setSelectedDate(next);
+    }
+  };
 
   const handleAdd = async (type: BeerType) => {
     setAdding(type);
     try {
-      await onAddLog(type);
+      await onAddLog(type, selectedDateStr);
     } finally {
       setAdding(null);
     }
   };
 
   const handleUndo = async () => {
-    if (todayLogs.length === 0 || undoing) return;
+    if (dayLogs.length === 0 || undoing) return;
     setUndoing(true);
     try {
-      // Remove the most recent log from today (don't mutate original array)
-      const sortedLogs = [...todayLogs].sort(
+      // Remove the most recent log from selected day (don't mutate original array)
+      const sortedLogs = [...dayLogs].sort(
         (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
       );
       await onRemoveLog(sortedLogs[0].id);
@@ -47,12 +84,34 @@ export default function DailyTracker({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-4">Today</h2>
+      {/* Day navigation header */}
+      <div className="flex items-center justify-between mb-4">
+        <button
+          onClick={goToPreviousDay}
+          className="p-2 -ml-2 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Previous day"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 className="text-lg font-semibold text-gray-900">{formatDayHeader(selectedDate)}</h2>
+        <button
+          onClick={goToNextDay}
+          disabled={isToday}
+          className="p-2 -mr-2 text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed transition-colors"
+          aria-label="Next day"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
 
-      {/* Today's total */}
+      {/* Day's total */}
       <div className="text-center mb-6">
         <div className="text-4xl font-bold text-gray-900">{totalOunces}</div>
-        <div className="text-sm text-gray-500">ounces today</div>
+        <div className="text-sm text-gray-500">ounces {isToday ? 'today' : 'this day'}</div>
       </div>
 
       {/* Add buttons */}
@@ -129,13 +188,13 @@ export default function DailyTracker({
       </div>
 
       {/* Undo button */}
-      {todayLogs.length > 0 && (
+      {dayLogs.length > 0 && (
         <button
           onClick={handleUndo}
           disabled={undoing}
           className="w-full py-2 text-gray-500 hover:text-gray-700 disabled:text-gray-300 text-sm font-medium transition-colors"
         >
-          {undoing ? 'Removing...' : `Undo last (${todayLogs.length} logged today)`}
+          {undoing ? 'Removing...' : `Undo last (${dayLogs.length} logged)`}
         </button>
       )}
     </div>

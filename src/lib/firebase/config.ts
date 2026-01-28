@@ -1,5 +1,5 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
+import { getAuth, Auth, indexedDBLocalPersistence, setPersistence } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -39,6 +39,11 @@ function getFirebaseApp(): FirebaseApp {
 function getFirebaseAuth(): Auth {
   if (!auth) {
     auth = getAuth(getFirebaseApp());
+    // Use indexedDB persistence for better mobile browser support
+    // This helps maintain sign-in state on iOS Safari and other mobile browsers
+    setPersistence(auth, indexedDBLocalPersistence).catch((err) => {
+      console.warn('Failed to set auth persistence:', err);
+    });
   }
   return auth;
 }

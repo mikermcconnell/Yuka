@@ -26,7 +26,7 @@ interface UseBeerLogsReturn {
   loading: boolean;
   error: string | null;
   currentWeekStart: Date;
-  addLog: (type: BeerType) => Promise<void>;
+  addLog: (type: BeerType, date?: string) => Promise<void>;
   removeLog: (logId: string) => Promise<void>;
   goToPreviousWeek: () => void;
   goToNextWeek: () => void;
@@ -93,17 +93,18 @@ export function useBeerLogs(): UseBeerLogsReturn {
   }, [fetchLogs]);
 
   const addLog = useCallback(
-    async (type: BeerType) => {
+    async (type: BeerType, date?: string) => {
       if (!user) {
         throw new Error('Must be logged in to add beer logs');
       }
 
       try {
-        const id = await addBeerLog(user.uid, type);
+        const id = await addBeerLog(user.uid, type, date);
         const now = new Date();
+        const logDate = date || formatDateString(now);
         const newLog: BeerLog = {
           id,
-          date: formatDateString(now),
+          date: logDate,
           type,
           ounces: type === 'pint' ? PINT_OUNCES : CAN_OUNCES,
           timestamp: now,
