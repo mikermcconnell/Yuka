@@ -1,7 +1,7 @@
 'use client';
 
 import { WeekData } from '@/types/beers';
-import { WEEKLY_GOAL } from '@/lib/beers/constants';
+import { WEEKLY_LIMIT } from '@/lib/beers/constants';
 import { getDayName, formatDateString } from '@/lib/beers/calculations';
 
 interface WeeklyChartProps {
@@ -11,9 +11,9 @@ interface WeeklyChartProps {
 export default function WeeklyChart({ weekData }: WeeklyChartProps) {
   const { days, totalOunces } = weekData;
 
-  // Find max value for scaling (at least WEEKLY_GOAL / 7 for reference)
-  const dailyGoal = WEEKLY_GOAL / 7;
-  const maxDaily = Math.max(...days.map((d) => d.totalOunces), dailyGoal * 1.5);
+  // Find max value for scaling (at least WEEKLY_LIMIT / 7 for reference)
+  const dailyLimit = WEEKLY_LIMIT / 7;
+  const maxDaily = Math.max(...days.map((d) => d.totalOunces), dailyLimit * 1.5);
 
   const today = formatDateString(new Date());
 
@@ -22,7 +22,7 @@ export default function WeeklyChart({ weekData }: WeeklyChartProps) {
   const barWidth = 32;
   const barGap = 8;
   const chartWidth = (barWidth + barGap) * 7 - barGap;
-  const goalLineY = chartHeight - (dailyGoal / maxDaily) * chartHeight;
+  const limitLineY = chartHeight - (dailyLimit / maxDaily) * chartHeight;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-6">
@@ -30,7 +30,7 @@ export default function WeeklyChart({ weekData }: WeeklyChartProps) {
         <h2 className="text-lg font-semibold text-gray-900">This Week</h2>
         <div className="text-right">
           <div className="text-2xl font-bold text-gray-900">{totalOunces}</div>
-          <div className="text-xs text-gray-500">of {WEEKLY_GOAL}oz goal</div>
+          <div className="text-xs text-gray-500">of {WEEKLY_LIMIT}oz limit</div>
         </div>
       </div>
 
@@ -42,24 +42,24 @@ export default function WeeklyChart({ weekData }: WeeklyChartProps) {
           viewBox={`0 0 ${chartWidth + 40} ${chartHeight + 40}`}
           className="overflow-visible"
         >
-          {/* Goal line */}
+          {/* Limit line */}
           <line
             x1={20}
-            y1={goalLineY + 10}
+            y1={limitLineY + 10}
             x2={chartWidth + 20}
-            y2={goalLineY + 10}
+            y2={limitLineY + 10}
             stroke="#f59e0b"
             strokeWidth={2}
             strokeDasharray="4 4"
           />
           <text
             x={chartWidth + 25}
-            y={goalLineY + 14}
+            y={limitLineY + 14}
             fill="#f59e0b"
             fontSize={10}
             fontWeight={500}
           >
-            {Math.round(dailyGoal)}
+            {Math.round(dailyLimit)}
           </text>
 
           {/* Bars */}
@@ -71,12 +71,12 @@ export default function WeeklyChart({ weekData }: WeeklyChartProps) {
             const x = 20 + i * (barWidth + barGap);
             const y = chartHeight - barHeight + 10;
             const isToday = day.date === today;
-            const isOverGoal = day.totalOunces > dailyGoal;
+            const isOverLimit = day.totalOunces > dailyLimit;
 
             // Determine bar color
             let barColor = '#e5e7eb'; // empty/gray
             if (day.totalOunces > 0) {
-              barColor = isOverGoal ? '#f59e0b' : '#22c55e'; // amber if over, green if under
+              barColor = isOverLimit ? '#f59e0b' : '#22c55e'; // amber if over, green if under
             }
 
             const dayDate = new Date(day.date + 'T12:00:00');
@@ -150,11 +150,11 @@ export default function WeeklyChart({ weekData }: WeeklyChartProps) {
       <div className="flex justify-center gap-6 mt-4 text-xs text-gray-500">
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-green-500" />
-          <span>Under goal</span>
+          <span>Under limit</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded bg-amber-500" />
-          <span>Over goal</span>
+          <span>Over limit</span>
         </div>
       </div>
     </div>
