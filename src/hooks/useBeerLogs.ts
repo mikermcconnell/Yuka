@@ -20,31 +20,38 @@ import { useAuth } from './useAuth';
 
 interface UseBeerLogsReturn {
   logs: BeerLog[];
-  weekData: WeekData | null;
+  weekData: WeekData;
   todayTotal: number;
   streak: StreakInfo;
   loading: boolean;
   error: string | null;
   currentWeekStart: Date;
+  selectedDate: Date;
+  setSelectedDate: (date: Date) => void;
   addLog: (type: BeerType, date?: string) => Promise<void>;
   removeLog: (logId: string) => Promise<void>;
   goToPreviousWeek: () => void;
   goToNextWeek: () => void;
   goToCurrentWeek: () => void;
+  goToPreviousDay: () => void;
+  goToNextDay: () => void;
   isCurrentWeek: boolean;
+  isToday: boolean;
   refresh: () => Promise<void>;
 }
 
 export function useBeerLogs(): UseBeerLogsReturn {
   const { user } = useAuth();
   const [logs, setLogs] = useState<BeerLog[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     return getWeekBoundaries(new Date()).start;
   });
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
 
   const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -53,12 +60,17 @@ export function useBeerLogs(): UseBeerLogsReturn {
     };
   }, []);
 
+  // Use user.uid instead of user object to prevent refetches on object reference changes
+  const userId = user?.uid;
+
   const fetchLogs = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setLogs([]);
+      setLoading(false);
       return;
     }
 
+    const thisRequestId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
 
@@ -69,24 +81,25 @@ export function useBeerLogs(): UseBeerLogsReturn {
       extendedStart.setDate(extendedStart.getDate() - 7);
 
       const entries = await getBeerLogsForDateRange(
-        user.uid,
+        userId,
         formatDateString(extendedStart),
         formatDateString(end)
       );
 
-      if (mountedRef.current) {
+      // Only update state if this is still the most recent request
+      if (thisRequestId === requestIdRef.current && mountedRef.current) {
         setLogs(entries);
       }
     } catch (err) {
-      if (mountedRef.current) {
+      if (thisRequestId === requestIdRef.current && mountedRef.current) {
         setError(getErrorMessage(err, 'Failed to fetch beer logs'));
       }
     } finally {
-      if (mountedRef.current) {
+      if (thisRequestId === requestIdRef.current && mountedRef.current) {
         setLoading(false);
       }
     }
-  }, [user, currentWeekStart]);
+  }, [userId, currentWeekStart]);
 
   useEffect(() => {
     fetchLogs();
@@ -94,12 +107,12 @@ export function useBeerLogs(): UseBeerLogsReturn {
 
   const addLog = useCallback(
     async (type: BeerType, date?: string) => {
-      if (!user) {
+      if (!userId) {
         throw new Error('Must be logged in to add beer logs');
       }
 
       try {
-        const id = await addBeerLog(user.uid, type, date);
+        const id = await addBeerLog(userId, type, date);
         const now = new Date();
         const logDate = date || formatDateString(now);
         const newLog: BeerLog = {
@@ -115,24 +128,24 @@ export function useBeerLogs(): UseBeerLogsReturn {
         throw err;
       }
     },
-    [user]
+    [userId]
   );
 
   const removeLog = useCallback(
     async (logId: string) => {
-      if (!user) {
+      if (!userId) {
         throw new Error('Must be logged in');
       }
 
       try {
-        await deleteBeerLog(user.uid, logId);
+        await deleteBeerLog(userId, logId);
         setLogs((prev) => prev.filter((log) => log.id !== logId));
       } catch (err) {
         setError(getErrorMessage(err, 'Failed to remove beer log'));
         throw err;
       }
     },
-    [user]
+    [userId]
   );
 
   const goToPreviousWeek = useCallback(() => {
@@ -153,7 +166,39 @@ export function useBeerLogs(): UseBeerLogsReturn {
 
   const goToCurrentWeek = useCallback(() => {
     setCurrentWeekStart(getWeekBoundaries(new Date()).start);
+    setSelectedDate(new Date());
   }, []);
+
+  const goToPreviousDay = useCallback(() => {
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() - 1);
+      // If moving to a different week, update week view too
+      const newWeekStart = getWeekBoundaries(newDate).start;
+      if (formatDateString(newWeekStart) !== formatDateString(currentWeekStart)) {
+        setCurrentWeekStart(newWeekStart);
+      }
+      return newDate;
+    });
+  }, [currentWeekStart]);
+
+  const goToNextDay = useCallback(() => {
+    const today = new Date();
+    setSelectedDate((prev) => {
+      const newDate = new Date(prev);
+      newDate.setDate(newDate.getDate() + 1);
+      // Don't go past today
+      if (newDate > today) {
+        return prev;
+      }
+      // If moving to a different week, update week view too
+      const newWeekStart = getWeekBoundaries(newDate).start;
+      if (formatDateString(newWeekStart) !== formatDateString(currentWeekStart)) {
+        setCurrentWeekStart(newWeekStart);
+      }
+      return newDate;
+    });
+  }, [currentWeekStart]);
 
   // Calculate derived data
   const weekData = aggregateWeekData(logs, currentWeekStart);
@@ -166,6 +211,9 @@ export function useBeerLogs(): UseBeerLogsReturn {
   const isCurrentWeek =
     formatDateString(currentWeekStart) === formatDateString(currentWeekBoundary);
 
+  // Check if selected date is today
+  const isToday = formatDateString(selectedDate) === today;
+
   return {
     logs,
     weekData,
@@ -174,12 +222,17 @@ export function useBeerLogs(): UseBeerLogsReturn {
     loading,
     error,
     currentWeekStart,
+    selectedDate,
+    setSelectedDate,
     addLog,
     removeLog,
     goToPreviousWeek,
     goToNextWeek,
     goToCurrentWeek,
+    goToPreviousDay,
+    goToNextDay,
     isCurrentWeek,
+    isToday,
     refresh: fetchLogs,
   };
 }

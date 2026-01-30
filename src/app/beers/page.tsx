@@ -21,11 +21,15 @@ export default function BeersPage() {
     streak,
     loading,
     error,
+    selectedDate,
+    isToday,
     addLog,
     removeLog,
     goToPreviousWeek,
     goToNextWeek,
     goToCurrentWeek,
+    goToPreviousDay,
+    goToNextDay,
     isCurrentWeek,
   } = useBeerLogs();
 
@@ -77,19 +81,25 @@ export default function BeersPage() {
         <StreakBadge streak={streak} />
 
         {/* Daily tracker */}
-        <DailyTracker logs={logs} onAddLog={addLog} onRemoveLog={removeLog} />
+        <DailyTracker
+          logs={logs}
+          selectedDate={selectedDate}
+          isToday={isToday}
+          onAddLog={addLog}
+          onRemoveLog={removeLog}
+          onPreviousDay={goToPreviousDay}
+          onNextDay={goToNextDay}
+        />
 
         {/* Week navigation */}
-        {weekData && (
-          <WeekNavigation
-            startDate={weekData.startDate}
-            endDate={weekData.endDate}
-            onPrevious={goToPreviousWeek}
-            onNext={goToNextWeek}
-            onToday={goToCurrentWeek}
-            isCurrentWeek={isCurrentWeek}
-          />
-        )}
+        <WeekNavigation
+          startDate={weekData.startDate}
+          endDate={weekData.endDate}
+          onPrevious={goToPreviousWeek}
+          onNext={goToNextWeek}
+          onToday={goToCurrentWeek}
+          isCurrentWeek={isCurrentWeek}
+        />
 
         {/* Weekly chart */}
         {loading ? (
@@ -100,7 +110,7 @@ export default function BeersPage() {
             </div>
           </div>
         ) : (
-          weekData && <WeeklyChart weekData={weekData} />
+          <WeeklyChart weekData={weekData} />
         )}
       </main>
     </div>

@@ -1,3 +1,4 @@
 export { default as LoginForm } from './LoginForm';
 export { default as SignupForm } from './SignupForm';
 export { default as AuthGuard, withAuth } from './AuthGuard';
+export { default as GoogleOneTap } from './GoogleOneTap';

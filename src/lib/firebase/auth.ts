@@ -20,9 +20,19 @@ export async function signInWithGoogle(): Promise<User | null> {
     const result = await signInWithPopup(auth(), googleProvider);
     const firebaseUser = result.user;
 
-    // Create or update user document in Firestore
-    const user = await createOrUpdateUser(firebaseUser);
-    return user;
+    // Fire-and-forget: update Firestore in background (don't block sign-in)
+    createOrUpdateUser(firebaseUser).catch((error) => {
+      console.error('Error creating/updating user document:', error);
+    });
+
+    // Return immediately with basic user info from Firebase Auth
+    return {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email,
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL,
+      createdAt: new Date(),
+    };
   } catch (error) {
     console.error('Error signing in with Google:', error);
     throw error;

@@ -7,8 +7,12 @@ import { formatDateString, calculateDailyTotal } from '@/lib/beers/calculations'
 
 interface DailyTrackerProps {
   logs: BeerLog[];
+  selectedDate: Date;
+  isToday: boolean;
   onAddLog: (type: BeerType, date?: string) => Promise<void>;
   onRemoveLog: (logId: string) => Promise<void>;
+  onPreviousDay: () => void;
+  onNextDay: () => void;
 }
 
 function formatDayHeader(date: Date): string {
@@ -32,32 +36,18 @@ function formatDayHeader(date: Date): string {
 
 export default function DailyTracker({
   logs,
+  selectedDate,
+  isToday,
   onAddLog,
   onRemoveLog,
+  onPreviousDay,
+  onNextDay,
 }: DailyTrackerProps) {
   const [adding, setAdding] = useState<BeerType | null>(null);
   const [undoing, setUndoing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const today = formatDateString(new Date());
   const selectedDateStr = formatDateString(selectedDate);
-  const isToday = selectedDateStr === today;
   const { totalOunces, logs: dayLogs } = calculateDailyTotal(logs, selectedDateStr);
-
-  const goToPreviousDay = () => {
-    const prev = new Date(selectedDate);
-    prev.setDate(prev.getDate() - 1);
-    setSelectedDate(prev);
-  };
-
-  const goToNextDay = () => {
-    const next = new Date(selectedDate);
-    next.setDate(next.getDate() + 1);
-    // Don't allow going past today
-    if (formatDateString(next) <= today) {
-      setSelectedDate(next);
-    }
-  };
 
   const handleAdd = async (type: BeerType) => {
     setAdding(type);
@@ -73,9 +63,12 @@ export default function DailyTracker({
     setUndoing(true);
     try {
       // Remove the most recent log from selected day (don't mutate original array)
-      const sortedLogs = [...dayLogs].sort(
-        (a, b) => b.timestamp.getTime() - a.timestamp.getTime()
-      );
+      // Use nullish coalescing to handle potentially null timestamps
+      const sortedLogs = [...dayLogs].sort((a, b) => {
+        const timeA = a.timestamp?.getTime() ?? 0;
+        const timeB = b.timestamp?.getTime() ?? 0;
+        return timeB - timeA;
+      });
       await onRemoveLog(sortedLogs[0].id);
     } finally {
       setUndoing(false);
@@ -87,7 +80,7 @@ export default function DailyTracker({
       {/* Day navigation header */}
       <div className="flex items-center justify-between mb-4">
         <button
-          onClick={goToPreviousDay}
+          onClick={onPreviousDay}
           className="p-2 -ml-2 text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Previous day"
         >
@@ -97,7 +90,7 @@ export default function DailyTracker({
         </button>
         <h2 className="text-lg font-semibold text-gray-900">{formatDayHeader(selectedDate)}</h2>
         <button
-          onClick={goToNextDay}
+          onClick={onNextDay}
           disabled={isToday}
           className="p-2 -mr-2 text-gray-400 hover:text-gray-600 disabled:text-gray-200 disabled:cursor-not-allowed transition-colors"
           aria-label="Next day"
