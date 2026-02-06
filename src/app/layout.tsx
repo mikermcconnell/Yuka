@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/hooks/useAuth';
 import { BottomNav } from '@/components/layout';
+import { GoogleOneTap } from '@/components/auth';
 
 export const metadata: Metadata = {
   title: 'Yuka Clone - Food Scanner',
@@ -43,6 +44,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-gray-50 min-h-screen">
         <AuthProvider>
+          <GoogleOneTap />
           <div className="max-w-lg mx-auto min-h-screen pb-20 relative">
             {children}
           </div>

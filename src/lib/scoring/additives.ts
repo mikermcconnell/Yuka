@@ -58,7 +58,7 @@ export const ADDITIVES: Record<string, Additive> = {
   E920: { code: 'E920', name: 'L-Cysteine', risk: 'safe', description: 'Amino acid, dough conditioner' },
 
   // Moderate risk additives (YELLOW)
-  E102: { code: 'E102', name: 'Tartrazine', risk: 'moderate', description: 'Yellow coloring', concerns: ['May cause hyperactivity in children'] },
+  E102: { code: 'E102', name: 'Tartrazine', risk: 'avoid', description: 'Yellow coloring', concerns: ['Hyperactivity concerns', 'Allergic reactions in sensitive people'] },
   E104: { code: 'E104', name: 'Quinoline Yellow', risk: 'moderate', description: 'Yellow coloring', concerns: ['May cause hyperactivity in children'] },
   E110: { code: 'E110', name: 'Sunset Yellow', risk: 'moderate', description: 'Orange coloring', concerns: ['May cause hyperactivity in children'] },
   E120: { code: 'E120', name: 'Cochineal', risk: 'moderate', description: 'Red coloring from insects', concerns: ['Allergic reactions possible'] },
@@ -107,7 +107,6 @@ export const ADDITIVES: Record<string, Additive> = {
   E635: { code: 'E635', name: 'Disodium Ribonucleotides', risk: 'moderate', description: 'Flavor enhancer', concerns: ['Should be avoided by gout sufferers'] },
 
   // High risk additives (RED - AVOID)
-  E102_HIGH: { code: 'E102', name: 'Tartrazine', risk: 'avoid', description: 'Yellow coloring', concerns: ['Hyperactivity', 'Allergies', 'Banned in some countries'] },
   E123: { code: 'E123', name: 'Amaranth', risk: 'avoid', description: 'Red coloring', concerns: ['Banned in USA', 'Possible carcinogen'] },
   E127: { code: 'E127', name: 'Erythrosine', risk: 'avoid', description: 'Red coloring', concerns: ['May affect thyroid', 'Possible carcinogen'] },
   E128: { code: 'E128', name: 'Red 2G', risk: 'avoid', description: 'Red coloring', concerns: ['Banned in many countries'] },

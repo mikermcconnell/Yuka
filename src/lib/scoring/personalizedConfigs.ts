@@ -27,9 +27,9 @@ export const PERSONALIZED_CONFIGS: Record<string, ScoringConfig> = {
       fiber: 12,        // Increased from 10 (MTHFR support, cardiovascular)
       protein: 10,      // Unchanged (active lifestyle needs)
       omega3: 8,        // NEW (9p21 cardiovascular, CETP AA HDL support)
-      additives: 15,    // Unchanged
+      additives: 20,    // Increased for stricter additive penalties
       organic: 5,       // Unchanged
-      processing: 10,   // Unchanged
+      processing: 15,   // Increased to better penalize processed foods
     },
     thresholds: {
       sugar: { low: 6, medium: 15, high: 25 },           // More permissive (favorable carb genetics)

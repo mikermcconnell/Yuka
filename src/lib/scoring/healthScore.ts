@@ -1,6 +1,8 @@
 import { Nutriments, ScoreBreakdown, ScoreDetail, ScoringConfig } from '@/types';
 import { analyzeAdditives } from './additives';
 import { getPersonalizedConfig } from './personalizedConfigs';
+import { calculateAdditiveLoad } from './additiveLoad';
+import { detectInteractions } from './additiveInteractions';
 
 const DEFAULT_CONFIG: ScoringConfig = {
   weights: {
@@ -11,9 +13,9 @@ const DEFAULT_CONFIG: ScoringConfig = {
     fiber: 10,
     protein: 10,
     omega3: 0, // Not used in default scoring, only for personalized profiles
-    additives: 15,
+    additives: 20,
     organic: 5,
-    processing: 20, // Increased from 10 - ultra-processed foods are a major health concern
+    processing: 25, // Increased from 10 - ultra-processed foods are a major health concern
   },
   thresholds: {
     sugar: { low: 5, medium: 12.5, high: 22.5 }, // g per 100g
@@ -36,9 +38,9 @@ const BEVERAGE_CONFIG: ScoringConfig = {
     fiber: 5,
     protein: 5,
     omega3: 0,
-    additives: 15,
+    additives: 20,
     organic: 5,
-    processing: 15, // Slightly lower since most beverages are processed
+    processing: 20,
   },
   thresholds: {
     sugar: { low: 2.5, medium: 5, high: 8 }, // Even stricter - 8g/100ml is very high for a drink
@@ -79,6 +81,51 @@ function isBeverage(categories: string[]): boolean {
   return lowerCategories.some(cat =>
     BEVERAGE_CATEGORIES.some(bev => cat.includes(bev))
   );
+}
+
+function mergeBeveragePersonalizedConfig(
+  personalizedConfig: ScoringConfig | null,
+  isBeverageProduct: boolean
+): ScoringConfig {
+  if (!personalizedConfig && !isBeverageProduct) {
+    return DEFAULT_CONFIG;
+  }
+
+  if (!personalizedConfig && isBeverageProduct) {
+    return BEVERAGE_CONFIG;
+  }
+
+  if (personalizedConfig && !isBeverageProduct) {
+    return personalizedConfig;
+  }
+
+  const p = personalizedConfig as ScoringConfig;
+  const b = BEVERAGE_CONFIG;
+
+  return {
+    weights: {
+      sugar: Math.max(p.weights.sugar, b.weights.sugar),
+      saturatedFat: Math.max(p.weights.saturatedFat, b.weights.saturatedFat),
+      sodium: Math.max(p.weights.sodium, b.weights.sodium),
+      calories: Math.max(p.weights.calories, b.weights.calories),
+      fiber: Math.min(p.weights.fiber, b.weights.fiber),
+      protein: Math.min(p.weights.protein, b.weights.protein),
+      omega3: p.weights.omega3,
+      additives: Math.max(p.weights.additives, b.weights.additives),
+      organic: p.weights.organic,
+      processing: Math.max(p.weights.processing, b.weights.processing),
+    },
+    thresholds: {
+      // Use stricter beverage thresholds for liquid products.
+      sugar: b.thresholds.sugar,
+      saturatedFat: b.thresholds.saturatedFat,
+      sodium: b.thresholds.sodium,
+      calories: b.thresholds.calories,
+      fiber: b.thresholds.fiber,
+      protein: b.thresholds.protein,
+      omega3: p.thresholds.omega3,
+    },
+  };
 }
 
 // Calculate empty calorie penalty for products with calories but no nutritional value
@@ -136,20 +183,15 @@ export function calculateHealthScore(input: ScoreInput): {
   const details: ScoreDetail[] = [];
   let positivePoints = 0;
   let negativePoints = 0;
+  let maxPositive = 0;
+  let maxNegative = 0;
 
   // Detect if product is a beverage for stricter scoring
   const isBeverageProduct = isBeverage(categories);
 
-  // Use personalized config if available, then beverage config, then default
+  // Merge beverage strictness with personalized settings when both apply.
   const personalizedConfig = getPersonalizedConfig(userEmail);
-  let config: ScoringConfig;
-  if (personalizedConfig) {
-    config = personalizedConfig;
-  } else if (isBeverageProduct) {
-    config = BEVERAGE_CONFIG;
-  } else {
-    config = DEFAULT_CONFIG;
-  }
+  const config = mergeBeveragePersonalizedConfig(personalizedConfig, isBeverageProduct);
   const isPersonalized = personalizedConfig !== null;
 
   // Sugar analysis (negative)
@@ -163,6 +205,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (sugarScore) {
     details.push(sugarScore);
     negativePoints += Math.abs(sugarScore.points);
+    maxNegative += config.weights.sugar;
   }
 
   // Saturated fat analysis (negative)
@@ -176,6 +219,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (satFatScore) {
     details.push(satFatScore);
     negativePoints += Math.abs(satFatScore.points);
+    maxNegative += config.weights.saturatedFat;
   }
 
   // Sodium analysis (negative)
@@ -190,6 +234,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (sodiumScore) {
     details.push(sodiumScore);
     negativePoints += Math.abs(sodiumScore.points);
+    maxNegative += config.weights.sodium;
   }
 
   // Calories analysis (negative)
@@ -204,6 +249,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (caloriesScore) {
     details.push(caloriesScore);
     negativePoints += Math.abs(caloriesScore.points);
+    maxNegative += config.weights.calories;
   }
 
   // Fiber analysis (positive)
@@ -217,6 +263,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (fiberScore) {
     details.push(fiberScore);
     positivePoints += fiberScore.points;
+    maxPositive += config.weights.fiber;
   }
 
   // Protein analysis (positive)
@@ -230,6 +277,7 @@ export function calculateHealthScore(input: ScoreInput): {
   if (proteinScore) {
     details.push(proteinScore);
     positivePoints += proteinScore.points;
+    maxPositive += config.weights.protein;
   }
 
   // Omega-3 analysis (positive) - only for personalized profiles with omega3 weight > 0
@@ -246,6 +294,7 @@ export function calculateHealthScore(input: ScoreInput): {
     if (omega3Score) {
       details.push(omega3Score);
       positivePoints += omega3Score.points;
+      maxPositive += config.weights.omega3;
     }
   }
 
@@ -255,14 +304,22 @@ export function calculateHealthScore(input: ScoreInput): {
   if (additiveScore) {
     details.push(additiveScore);
     negativePoints += Math.abs(additiveScore.points);
+    maxNegative += getAdditivePenaltyCap(config.weights.additives);
   }
 
-  // NOVA processing level (negative)
-  const novaScore = calculateNovaScore(novaGroup, config.weights.processing);
-  if (novaScore) {
-    details.push(novaScore);
-    negativePoints += Math.abs(novaScore.points);
+  // Additive interaction penalty (negative)
+  const interactionScore = calculateInteractionPenalty(additives);
+  if (interactionScore) {
+    details.push(interactionScore);
+    negativePoints += Math.abs(interactionScore.points);
+    maxNegative += getInteractionPenaltyCap();
   }
+
+  // NOVA processing level (negative), with additive-based fallback if NOVA is missing
+  const processingScore = calculateProcessingScore(novaGroup, additives, config.weights.processing);
+  details.push(processingScore);
+  negativePoints += Math.abs(processingScore.points);
+  maxNegative += config.weights.processing;
 
   // Organic bonus (positive)
   const organicScore = calculateOrganicBonus(labels, config.weights.organic);
@@ -270,37 +327,24 @@ export function calculateHealthScore(input: ScoreInput): {
     details.push(organicScore);
     positivePoints += organicScore.points;
   }
+  if (labels.length > 0) {
+    maxPositive += config.weights.organic;
+  }
 
   // Empty calorie penalty (negative) - for products with calories but no nutritional value
   const emptyCalorieScore = calculateEmptyCaloriePenalty(nutriments, isBeverageProduct);
   if (emptyCalorieScore) {
     details.push(emptyCalorieScore);
     negativePoints += Math.abs(emptyCalorieScore.points);
+    maxNegative += isBeverageProduct ? 30 : 20;
   }
 
   // Calculate final score (0-100)
-  // New model: Start at 100, subtract penalties, add small bonuses for positive nutrients
-  const emptyCalorieMax = isBeverageProduct ? 30 : 20; // Beverages get harsher empty calorie penalty
-  const maxNegative =
-    config.weights.sugar +
-    config.weights.saturatedFat +
-    config.weights.sodium +
-    config.weights.calories +
-    config.weights.additives +
-    config.weights.processing +
-    emptyCalorieMax;
-
-  const maxPositive =
-    config.weights.fiber +
-    config.weights.protein +
-    config.weights.organic +
-    (config.weights.omega3 || 0); // Include omega-3 if configured
-
-  // NEW SCORING MODEL: Start at 100, lose points for negatives, gain small bonus for positives
-  // This ensures products must "earn" a good score rather than starting in the middle
   const baseScore = 100;
-  const positiveBonus = (positivePoints / maxPositive) * 15; // Max +15 points for nutritional value
-  const negativePenalty = (negativePoints / maxNegative) * 100; // Full penalty range - bad products can score 0
+  const normalizedPositiveMax = Math.max(maxPositive, 1);
+  const normalizedNegativeMax = Math.max(maxNegative, 1);
+  const positiveBonus = (positivePoints / normalizedPositiveMax) * 15; // Max +15 points for nutritional value
+  const negativePenalty = (negativePoints / normalizedNegativeMax) * 100; // Full penalty range - bad products can score 0
 
   let finalScore = Math.round(baseScore + positiveBonus - negativePenalty);
   finalScore = Math.max(0, Math.min(100, finalScore));
@@ -387,12 +431,12 @@ function calculateAdditiveScore(
     };
   }
 
-  // Penalty calculation
-  const avoidPenalty = avoidCount * (weight / 3);
-  const moderatePenalty = moderateCount * (weight / 10);
-  const unknownPenalty = unknownCount * (weight / 15);
+  // Stricter additive penalty calculation
+  const avoidPenalty = avoidCount * (weight / 2);
+  const moderatePenalty = moderateCount * (weight / 5);
+  const unknownPenalty = unknownCount * (weight / 6);
 
-  const totalPenalty = Math.min(weight, Math.round(avoidPenalty + moderatePenalty + unknownPenalty));
+  const totalPenalty = Math.min(getAdditivePenaltyCap(weight), Math.round(avoidPenalty + moderatePenalty + unknownPenalty));
 
   let description: string;
   if (avoidCount > 0) {
@@ -411,11 +455,11 @@ function calculateAdditiveScore(
   };
 }
 
-function calculateNovaScore(novaGroup: number | undefined, weight: number): ScoreDetail | null {
-  if (!novaGroup || novaGroup < 1 || novaGroup > 4) {
-    return null;
-  }
-
+function calculateProcessingScore(
+  novaGroup: number | undefined,
+  additives: string[],
+  weight: number
+): ScoreDetail {
   const descriptions = {
     1: 'Unprocessed or minimally processed',
     2: 'Processed culinary ingredients',
@@ -425,15 +469,70 @@ function calculateNovaScore(novaGroup: number | undefined, weight: number): Scor
 
   const penalties = {
     1: 0,
-    2: Math.round(weight * 0.2),
-    3: Math.round(weight * 0.5),
+    2: Math.round(weight * 0.3),
+    3: Math.round(weight * 0.65),
     4: weight,
   };
 
+  if (novaGroup && novaGroup >= 1 && novaGroup <= 4) {
+    return {
+      factor: 'processing',
+      points: -penalties[novaGroup as keyof typeof penalties],
+      description: `NOVA ${novaGroup}: ${descriptions[novaGroup as keyof typeof descriptions]}`,
+      type: 'negative',
+    };
+  }
+
+  const additiveLoad = calculateAdditiveLoad(additives);
+  const fallbackRatioByLevel = {
+    minimal: 0,
+    low: 0.2,
+    moderate: 0.5,
+    high: 0.75,
+    ultra: 1,
+  };
+  const fallbackRatio = fallbackRatioByLevel[additiveLoad.processingLevel];
+  const fallbackPenalty = Math.round(weight * fallbackRatio);
+  const fallbackLabel = additiveLoad.processingLevel.charAt(0).toUpperCase() + additiveLoad.processingLevel.slice(1);
+
   return {
     factor: 'processing',
-    points: -penalties[novaGroup as keyof typeof penalties],
-    description: `NOVA ${novaGroup}: ${descriptions[novaGroup as keyof typeof descriptions]}`,
+    points: -fallbackPenalty,
+    description: `Estimated processing (${fallbackLabel}) from additive profile`,
+    type: 'negative',
+  };
+}
+
+function getAdditivePenaltyCap(weight: number): number {
+  return Math.round(weight * 1.5);
+}
+
+function getInteractionPenaltyCap(): number {
+  return 12;
+}
+
+function calculateInteractionPenalty(additives: string[]): ScoreDetail | null {
+  const interactions = detectInteractions(additives);
+  if (interactions.length === 0) {
+    return null;
+  }
+
+  const severityPenalty = {
+    critical: 6,
+    warning: 4,
+    caution: 2,
+    info: 1,
+  };
+
+  const totalPenalty = Math.min(
+    getInteractionPenaltyCap(),
+    interactions.reduce((sum, interaction) => sum + severityPenalty[interaction.severity], 0)
+  );
+
+  return {
+    factor: 'additive interactions',
+    points: -totalPenalty,
+    description: `${interactions.length} concerning additive interaction(s) detected`,
     type: 'negative',
   };
 }

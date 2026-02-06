@@ -13,7 +13,9 @@ function HomePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { fetchProductByBarcode, loading, error } = useProduct();
+  const { fetchProductByBarcode, loading, error } = useProduct({
+    userEmail: user?.email,
+  });
   const { addProduct } = useHistory();
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [mode, setMode] = useState<'scan' | 'manual'>('scan');

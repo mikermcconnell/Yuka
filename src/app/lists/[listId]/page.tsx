@@ -16,7 +16,9 @@ export default function ListDetailPage() {
   const listId = params.listId as string;
   const { user } = useAuth();
   const { getListById, removeProductFromList, deleteListById } = useLists();
-  const { fetchProductByBarcode } = useProduct();
+  const { fetchProductByBarcode } = useProduct({
+    userEmail: user?.email,
+  });
 
   const [list, setList] = useState<ProductList | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
