@@ -53,6 +53,8 @@ export default function DailyTracker({
     setAdding(type);
     try {
       await onAddLog(type, selectedDateStr);
+    } catch {
+      // Error is already handled by useBeerLogs (sets error state on the page)
     } finally {
       setAdding(null);
     }

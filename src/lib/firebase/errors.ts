@@ -92,8 +92,16 @@ export async function safeFirestoreOperation<T>(
   context?: string
 ): Promise<T> {
   try {
-    return await withRetry(operation);
+    const timeoutMs = 15000;
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Operation timed out. Please check your connection and try again.')), timeoutMs)
+    );
+    return await Promise.race([withRetry(operation), timeoutPromise]);
   } catch (error) {
+    if (error instanceof Error && error.message.includes('timed out')) {
+      console.error(`Firestore timeout${context ? ` in ${context}` : ''}`);
+      throw error;
+    }
     const message = getFirestoreErrorMessage(error);
     console.error(`Firestore error${context ? ` in ${context}` : ''}:`, error);
     throw new Error(message);
