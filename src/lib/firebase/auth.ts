@@ -1,5 +1,7 @@
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -11,9 +13,23 @@ import { User } from '@/types';
 
 const googleProvider = new GoogleAuthProvider();
 
+function isMobile(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+    navigator.userAgent
+  );
+}
+
 export async function signInWithGoogle(): Promise<User | null> {
   if (!isFirebaseConfigured) {
     throw new Error('Firebase is not configured');
+  }
+
+  // On mobile, use redirect flow to avoid popup/COOP issues
+  if (isMobile()) {
+    await signInWithRedirect(auth(), googleProvider);
+    // Page will redirect — this won't resolve until the user comes back
+    return null;
   }
 
   try {
@@ -39,6 +55,21 @@ export async function signInWithGoogle(): Promise<User | null> {
   }
 }
 
+export async function handleRedirectResult(): Promise<void> {
+  if (!isFirebaseConfigured) return;
+
+  try {
+    const result = await getRedirectResult(auth());
+    if (result?.user) {
+      createOrUpdateUser(result.user).catch((error) => {
+        console.error('Error creating/updating user document:', error);
+      });
+    }
+  } catch (error) {
+    console.error('Error handling redirect result:', error);
+  }
+}
+
 export async function signOut(): Promise<void> {
   if (!isFirebaseConfigured) {
     return;
@@ -59,36 +90,17 @@ export function onAuthChange(callback: (user: User | null) => void): () => void 
     return () => {};
   }
 
-  return onAuthStateChanged(auth(), async (firebaseUser) => {
+  return onAuthStateChanged(auth(), (firebaseUser) => {
     if (firebaseUser) {
-      try {
-        const user = await getUserFromFirestore(firebaseUser.uid);
-        // If user document doesn't exist in Firestore, create a basic user object
-        // from Firebase Auth data to prevent stuck loading state
-        if (user) {
-          callback(user);
-        } else {
-          // User is authenticated but no Firestore doc yet - create minimal user
-          callback({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName,
-            photoURL: firebaseUser.photoURL,
-            createdAt: new Date(),
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching user from Firestore:', error);
-        // On error, still provide basic user info from Firebase Auth
-        // to prevent app from being stuck in loading state
-        callback({
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          displayName: firebaseUser.displayName,
-          photoURL: firebaseUser.photoURL,
-          createdAt: new Date(),
-        });
-      }
+      callback({
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+        createdAt: firebaseUser.metadata.creationTime
+          ? new Date(firebaseUser.metadata.creationTime)
+          : new Date(),
+      });
     } else {
       callback(null);
     }
@@ -118,28 +130,6 @@ async function createOrUpdateUser(firebaseUser: FirebaseUser): Promise<User> {
   return userData;
 }
 
-async function getUserFromFirestore(uid: string): Promise<User | null> {
-  try {
-    const userRef = doc(db(), 'users', uid);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      return null;
-    }
-
-    const data = userSnap.data();
-    return {
-      uid: data.uid,
-      email: data.email,
-      displayName: data.displayName,
-      photoURL: data.photoURL,
-      createdAt: data.createdAt?.toDate() || new Date(),
-    };
-  } catch (error) {
-    console.error('Error getting user from Firestore:', error);
-    return null;
-  }
-}
 
 export function getCurrentUser(): FirebaseUser | null {
   if (!isFirebaseConfigured) {

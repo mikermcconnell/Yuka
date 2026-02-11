@@ -54,21 +54,25 @@ export default function GoogleOneTap() {
 
     try {
       const credential = GoogleAuthProvider.credential(response.credential);
-      const result = await signInWithCredential(auth(), credential);
+      await signInWithCredential(auth(), credential);
 
-      // Create or update user in Firestore
-      const firebaseUser = result.user;
-      const userRef = doc(db(), 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
-
-      await setDoc(userRef, {
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
-        displayName: firebaseUser.displayName,
-        photoURL: firebaseUser.photoURL,
-        updatedAt: serverTimestamp(),
-        createdAt: userSnap.exists() ? userSnap.data().createdAt : serverTimestamp(),
-      }, { merge: true });
+      // Update Firestore in background — don't block sign-in
+      const firebaseUser = auth().currentUser;
+      if (firebaseUser) {
+        const userRef = doc(db(), 'users', firebaseUser.uid);
+        getDoc(userRef).then((userSnap) => {
+          setDoc(userRef, {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+            updatedAt: serverTimestamp(),
+            createdAt: userSnap.exists() ? userSnap.data().createdAt : serverTimestamp(),
+          }, { merge: true });
+        }).catch((error) => {
+          console.error('Error updating user document:', error);
+        });
+      }
 
       // Page will automatically update via onAuthStateChanged
     } catch (error) {
@@ -103,6 +107,7 @@ export default function GoogleOneTap() {
           cancel_on_tap_outside: false,
           context: 'signin',
           itp_support: true,
+          use_fedcm_for_prompt: false, // Avoid FedCM errors on mobile
         });
 
         window.google.accounts.id.prompt((notification) => {

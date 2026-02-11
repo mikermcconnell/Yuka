@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { User } from '@/types';
-import { signInWithGoogle, signOut as firebaseSignOut, onAuthChange } from '@/lib/firebase/auth';
+import { signInWithGoogle, signOut as firebaseSignOut, onAuthChange, handleRedirectResult } from '@/lib/firebase/auth';
 import { getErrorMessage } from '@/lib/utils/formatters';
 
 interface AuthContextType {
@@ -21,6 +21,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Handle mobile redirect sign-in result
+    handleRedirectResult();
+
     const unsubscribe = onAuthChange((user) => {
       setUser(user);
       setLoading(false);
