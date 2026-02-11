@@ -36,6 +36,20 @@ export interface ScoreBreakdown {
   positivePoints: number;
   negativePoints: number;
   details: ScoreDetail[];
+  // Three-pillar breakdown (Yuka 60/30/10 model)
+  nutritionalQuality: number; // 0-100
+  additiveQuality: number;    // 0-100
+  organicBonus: number;       // 0 or 100
+  nutriScorePoints: number;   // Raw NutriScore points (-15 to +40)
+  nutriScoreGrade: string;    // A-E
+  hasAvoidAdditive: boolean;  // True if score was hard-capped at 49
+}
+
+export interface PersonalizedNutriScoreModifiers {
+  /** Adjusts negative NutriScore points based on genetic profile */
+  adjustN: (N: number, nutriments: Record<string, number | undefined>) => number;
+  /** Adjusts positive NutriScore points based on genetic profile */
+  adjustP: (P: number, nutriments: Record<string, number | undefined>) => number;
 }
 
 export interface ScoreDetail {
