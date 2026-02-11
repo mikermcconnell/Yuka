@@ -253,9 +253,9 @@ export function calculateHealthScore(input: ScoreInput): {
   );
   const organicBonus = hasOrganic ? 100 : 0;
 
-  // --- 60/30/10 formula ---
+  // --- 70/20/10 formula ---
   let finalScore = Math.round(
-    nutritionalQuality * 0.6 + additiveQuality * 0.3 + organicBonus * 0.1
+    nutritionalQuality * 0.7 + additiveQuality * 0.2 + organicBonus * 0.1
   );
 
   // Hard cap: if any "avoid" additive, score cannot exceed 49
@@ -308,15 +308,15 @@ export function calculateHealthScore(input: ScoreInput): {
 
 export function getScoreColor(score: number): string {
   if (score >= 75) return '#22c55e'; // Green
-  if (score >= 50) return '#eab308'; // Yellow
-  if (score >= 25) return '#f97316'; // Orange
+  if (score >= 55) return '#eab308'; // Yellow
+  if (score >= 35) return '#f97316'; // Orange
   return '#ef4444'; // Red
 }
 
 export function getScoreLabel(score: number): string {
   if (score >= 75) return 'Excellent';
-  if (score >= 50) return 'Good';
-  if (score >= 25) return 'Mediocre';
+  if (score >= 55) return 'Good';
+  if (score >= 35) return 'Mediocre';
   return 'Bad';
 }
 

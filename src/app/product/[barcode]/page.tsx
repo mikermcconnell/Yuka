@@ -184,7 +184,7 @@ export default function ProductPage() {
             {/* Nutritional Quality (60%) */}
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-700">Nutritional Quality (60%)</span>
+                <span className="text-gray-700">Nutritional Quality (70%)</span>
                 <span className="font-medium text-gray-900">
                   {product.scoreBreakdown.nutritionalQuality}/100
                   <span className="text-xs text-gray-500 ml-1">
@@ -206,7 +206,7 @@ export default function ProductPage() {
             {/* Additive Quality (30%) */}
             <div>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-700">Additive Quality (30%)</span>
+                <span className="text-gray-700">Additive Quality (20%)</span>
                 <span className="font-medium text-gray-900">{product.scoreBreakdown.additiveQuality}/100</span>
               </div>
               <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
